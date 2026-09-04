@@ -57,6 +57,29 @@ Outbound webhook policy:
 
 Never add an “allow private IP” tenant option. If an operator explicitly needs internal callbacks, isolate that deployment and provide a narrow operator-owned allowlist rather than tenant-controlled SSRF bypass.
 
+## Per-bot API base / config-claim
+
+This release adds a per-bot `telegram_api_base` (set via
+`setBulkDeliveryConfig`).  It is governed by a **token-only trust boundary**:
+
+*Any reachable caller can register arbitrary tokens and drive outbound POSTs.*
+Callers that can reach the HTTP listener can claim a bot by registering any
+`/bot<TOKEN>/` path; `BotId` is the token-keyed hash, so identifiers never
+collide (a claim never overwrites another bot's token), but nothing stops a new
+token from being created except network reachability.  The dispatch path builds
+every Telegram POST via a single producer `resolve_api_url(global, per_bot,
+token, method)` — plain host-prefix or `{token}` template — and a per-bot base
+that is present but unreachable is **not** silently replaced by the global host
+(the call fails through the existing retry path; only absent/null/empty falls
+back to global, and values not starting with `http(s)://` are discarded).
+
+**Deployment precondition.** Because the service now (a) binds `0.0.0.0:8080` by
+default and (b) allows any authenticated-by-reachability caller to direct
+outbound traffic, it must run behind a private network or an authenticating
+reverse proxy.  If such a boundary does not exist, bind the service to
+loopback only (`bind = "127.0.0.1:8080"` in the operator config).  The shipped
+default assumes the proxy/TLS/bot-token log-stripping described above.
+
 ## Review checklist
 
 Before release verify:

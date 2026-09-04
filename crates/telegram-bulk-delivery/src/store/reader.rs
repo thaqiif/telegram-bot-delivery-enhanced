@@ -354,7 +354,7 @@ fn reader_loop(
                     |r| Ok(BotRecord { telegram_user_id: r.get(0)? }),
                 ).optional()?),
                 ReadQuery::Config(id) => ReadResult::Config(conn.query_row(
-                    "SELECT json_object('config_version',config_version,'target_msgs_per_sec',target_msgs_per_sec,'retry_max_attempts',retry_max_attempts,'retry_base_ms',retry_base_ms,'retry_max_ms',retry_max_ms,'retry_jitter',retry_jitter,'retryable_classes',json(retryable_classes_json),'ambiguity_policy',ambiguity_policy,'job_deadline_secs',job_deadline_secs,'fairness_weight',fairness_weight,'completion_webhook_url',webhook_url,'webhook_secret_configured',json(CASE WHEN webhook_secret_ciphertext IS NOT NULL THEN 'true' ELSE 'false' END),'webhook_max_attempts',webhook_max_attempts,'webhook_retry_base_ms',webhook_retry_base_ms,'webhook_retry_max_ms',webhook_retry_max_ms) FROM bot_configs WHERE bot_id=?1",
+                    "SELECT json_object('config_version',config_version,'target_msgs_per_sec',target_msgs_per_sec,'retry_max_attempts',retry_max_attempts,'retry_base_ms',retry_base_ms,'retry_max_ms',retry_max_ms,'retry_jitter',retry_jitter,'retryable_classes',json(retryable_classes_json),'ambiguity_policy',ambiguity_policy,'job_deadline_secs',job_deadline_secs,'fairness_weight',fairness_weight,'completion_webhook_url',webhook_url,'webhook_secret_configured',json(CASE WHEN webhook_secret_ciphertext IS NOT NULL THEN 'true' ELSE 'false' END),'webhook_max_attempts',webhook_max_attempts,'webhook_retry_base_ms',webhook_retry_base_ms,'webhook_retry_max_ms',webhook_retry_max_ms,'telegram_api_base',telegram_api_base) FROM bot_configs WHERE bot_id=?1",
                     [id.0.as_slice()],
                     |r| r.get(0)
                 ).optional()?),

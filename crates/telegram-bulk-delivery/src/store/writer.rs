@@ -729,10 +729,80 @@ fn execute(conn: &mut Connection, command: WriterCmd) -> Result<WriterResult, St
             let webhook_url = config_json
                 .get("completion_webhook_url")
                 .and_then(Value::as_str);
+            let telegram_api_base = config_json.get("telegram_api_base").and_then(Value::as_str);
             let (secret_nonce, secret_ciphertext, secret_kid) = webhook_secret
                 .map(|(n, c, k)| (Some(n), Some(c), Some(k)))
                 .unwrap_or((None, None, None));
-            c.execute("INSERT INTO bot_configs VALUES(?1,1,?2,?3,?4,?5,'full',?6,?7,?8,?9,?10,1,?11,?12,?13,?14,?15,?16,?17) ON CONFLICT(bot_id) DO UPDATE SET config_version=config_version+1,target_msgs_per_sec=excluded.target_msgs_per_sec,retry_max_attempts=excluded.retry_max_attempts,retry_base_ms=excluded.retry_base_ms,retry_max_ms=excluded.retry_max_ms,retryable_classes_json=excluded.retryable_classes_json,ambiguity_policy=excluded.ambiguity_policy,job_deadline_secs=excluded.job_deadline_secs,fairness_weight=excluded.fairness_weight,webhook_url=excluded.webhook_url,webhook_secret_nonce=CASE WHEN excluded.webhook_url IS NULL THEN NULL ELSE coalesce(excluded.webhook_secret_nonce,webhook_secret_nonce) END,webhook_secret_ciphertext=CASE WHEN excluded.webhook_url IS NULL THEN NULL ELSE coalesce(excluded.webhook_secret_ciphertext,webhook_secret_ciphertext) END,webhook_secret_kid=CASE WHEN excluded.webhook_url IS NULL THEN NULL ELSE coalesce(excluded.webhook_secret_kid,webhook_secret_kid) END,webhook_max_attempts=excluded.webhook_max_attempts,webhook_retry_base_ms=excluded.webhook_retry_base_ms,webhook_retry_max_ms=excluded.webhook_retry_max_ms,updated_at_unix=excluded.updated_at_unix",params![bot_id.0.as_slice(),target,number("retry_max_attempts")?,number("retry_base_ms")?,number("retry_max_ms")?,text("retryable_classes_json")?,text("ambiguity_policy")?,number("job_deadline_secs")?,number("fairness_weight")?,webhook_url,secret_nonce.map(|n|n.to_vec()),secret_ciphertext,secret_kid,number("webhook_max_attempts")?,number("webhook_retry_base_ms")?,number("webhook_retry_max_ms")?,updated_at_unix])?;
+            // Explicit column list (21 cols, 3 literals + 18 params = 21 values).
+            // Column order matches the DDL in 0001_init.sql:16-26 plus migration 0004
+            // appended telegram_api_base at the end. Literals: config_version=1,
+            // retry_jitter='full', webhook_https_only=1.
+            c.execute(
+                "INSERT INTO bot_configs (
+                    bot_id,
+                    config_version,
+                    target_msgs_per_sec,
+                    retry_max_attempts,
+                    retry_base_ms,
+                    retry_max_ms,
+                    retry_jitter,
+                    retryable_classes_json,
+                    ambiguity_policy,
+                    job_deadline_secs,
+                    fairness_weight,
+                    webhook_url,
+                    webhook_https_only,
+                    webhook_secret_nonce,
+                    webhook_secret_ciphertext,
+                    webhook_secret_kid,
+                    webhook_max_attempts,
+                    webhook_retry_base_ms,
+                    webhook_retry_max_ms,
+                    updated_at_unix,
+                    telegram_api_base
+                ) VALUES (
+                    ?1, 1, ?2, ?3, ?4, ?5, 'full', ?6, ?7, ?8, ?9, ?10, 1, ?11, ?12, ?13, ?14, ?15, ?16, ?17, ?18
+                ) ON CONFLICT(bot_id) DO UPDATE SET
+                    config_version = config_version + 1,
+                    target_msgs_per_sec = excluded.target_msgs_per_sec,
+                    retry_max_attempts = excluded.retry_max_attempts,
+                    retry_base_ms = excluded.retry_base_ms,
+                    retry_max_ms = excluded.retry_max_ms,
+                    retryable_classes_json = excluded.retryable_classes_json,
+                    ambiguity_policy = excluded.ambiguity_policy,
+                    job_deadline_secs = excluded.job_deadline_secs,
+                    fairness_weight = excluded.fairness_weight,
+                    webhook_url = excluded.webhook_url,
+                    webhook_secret_nonce = CASE WHEN excluded.webhook_url IS NULL THEN NULL ELSE coalesce(excluded.webhook_secret_nonce, webhook_secret_nonce) END,
+                    webhook_secret_ciphertext = CASE WHEN excluded.webhook_url IS NULL THEN NULL ELSE coalesce(excluded.webhook_secret_ciphertext, webhook_secret_ciphertext) END,
+                    webhook_secret_kid = CASE WHEN excluded.webhook_url IS NULL THEN NULL ELSE coalesce(excluded.webhook_secret_kid, webhook_secret_kid) END,
+                    webhook_max_attempts = excluded.webhook_max_attempts,
+                    webhook_retry_base_ms = excluded.webhook_retry_base_ms,
+                    webhook_retry_max_ms = excluded.webhook_retry_max_ms,
+                    updated_at_unix = excluded.updated_at_unix,
+                    telegram_api_base = excluded.telegram_api_base
+                ",
+                params![
+                    bot_id.0.as_slice(),
+                    target,
+                    number("retry_max_attempts")?,
+                    number("retry_base_ms")?,
+                    number("retry_max_ms")?,
+                    text("retryable_classes_json")?,
+                    text("ambiguity_policy")?,
+                    number("job_deadline_secs")?,
+                    number("fairness_weight")?,
+                    webhook_url,
+                    secret_nonce.map(|n| n.to_vec()),
+                    secret_ciphertext,
+                    secret_kid,
+                    number("webhook_max_attempts")?,
+                    number("webhook_retry_base_ms")?,
+                    number("webhook_retry_max_ms")?,
+                    updated_at_unix,
+                    telegram_api_base,
+                ],
+            )?;
             Ok(WriterResult::Done)
         }),
         WriterCmd::UpsertBot {

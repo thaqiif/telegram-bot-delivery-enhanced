@@ -65,7 +65,7 @@ fi
 if [ ! -s "${CONFIG_DIR}/config.toml" ]; then
     cat > "${CONFIG_DIR}/config.toml" <<EOF
 database_path = "${DATA_DIR}/delivery.db"
-bind = "127.0.0.1:8080"
+bind = "0.0.0.0:8080"
 key_id = "v1"
 writer_queue_capacity = 128
 reader_queue_capacity = 64
@@ -86,7 +86,7 @@ retention_sweep_secs = 30
 retention_batch = 500
 EOF
     chown "${SERVICE_USER}:${SERVICE_USER}" "${CONFIG_DIR}/config.toml"
-    echo ">> wrote ${CONFIG_DIR}/config.toml (listen 127.0.0.1:8080)"
+    echo ">> wrote ${CONFIG_DIR}/config.toml (listen 0.0.0.0:8080)"
 else
     echo ">> keeping existing config.toml"
 fi
@@ -107,5 +107,5 @@ echo
 echo "start with:   systemctl start telegram-bulk-delivery"
 echo "check with:   curl -s http://127.0.0.1:8080/healthz"
 echo
-echo "The service listens on 127.0.0.1:8080 by default; put an nginx/caddy"
+echo "The service listens on 0.0.0.0:8080 by default; put an nginx/caddy"
 echo "TLS proxy in front for public exposure (see README)."

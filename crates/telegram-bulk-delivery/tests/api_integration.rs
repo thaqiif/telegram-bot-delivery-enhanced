@@ -10,6 +10,12 @@ use telegram_bulk_delivery::{
     http::{api_router, ApiState},
     store::{Store, WriterCmd},
 };
+
+fn bot_id_for(token: &str) -> telegram_bulk_delivery::domain::BotId {
+    KeyRing::derive(&[7; 32], "test")
+        .unwrap()
+        .bot_id(token.as_bytes())
+}
 use tokio::sync::Semaphore;
 use tower::ServiceExt;
 
@@ -197,5 +203,175 @@ async fn multipart_files_are_durable_before_promote() {
             .await
             .0,
         200
+    );
+}
+#[tokio::test]
+async fn telegram_api_base_config_round_trip_and_reset() {
+    let f = fixture().await;
+    // Set a per-bot base; it must round-trip through the store.
+    let (status, set) = call(
+        &f.app,
+        "POST",
+        "/botone/setBulkDeliveryConfig",
+        Some("application/json"),
+        r#"{"telegram_api_base":"https://api.telegram.org/bot{token}/test","target_msgs_per_sec":5}"#,
+    )
+    .await;
+    assert_eq!(status, 200);
+    assert_eq!(
+        set["result"]["telegram_api_base"],
+        "https://api.telegram.org/bot{token}/test"
+    );
+    assert_eq!(set["result"]["target_msgs_per_sec"], 5.0);
+    let (_, get) = call(&f.app, "GET", "/botone/getBulkDeliveryConfig", None, "").await;
+    assert_eq!(
+        get["result"]["telegram_api_base"],
+        "https://api.telegram.org/bot{token}/test"
+    );
+    // Reset clears it back to absent (null -> global fallback).
+    let (_, reset) = call(
+        &f.app,
+        "POST",
+        "/botone/resetBulkDeliveryConfig",
+        Some("application/json"),
+        "{}",
+    )
+    .await;
+    assert_eq!(reset["result"]["telegram_api_base"], Value::Null);
+    let (_, get2) = call(&f.app, "GET", "/botone/getBulkDeliveryConfig", None, "").await;
+    assert_eq!(get2["result"]["telegram_api_base"], Value::Null);
+    // Garbage / non-http(s) values are normalized to null by clamp.
+    let (_, set_bad) = call(
+        &f.app,
+        "POST",
+        "/botone/setBulkDeliveryConfig",
+        Some("application/json"),
+        r#"{"telegram_api_base":"ftp://nope","target_msgs_per_sec":5}"#,
+    )
+    .await;
+    assert_eq!(set_bad["result"]["telegram_api_base"], Value::Null);
+    // And a plain http(s) prefix base round-trips too.
+    let (_, set_plain) = call(
+        &f.app,
+        "POST",
+        "/botone/setBulkDeliveryConfig",
+        Some("application/json"),
+        r#"{"telegram_api_base":"http://127.0.0.1:9123"}"#,
+    )
+    .await;
+    assert_eq!(
+        set_plain["result"]["telegram_api_base"],
+        "http://127.0.0.1:9123"
+    );
+}
+#[tokio::test]
+async fn config_claim_registers_without_getme() {
+    // I-1: a brand-new token carrying an http(s) telegram_api_base is claimed
+    // without any getMe round-trip, and both the bot row (encrypted token) and
+    // config row exist afterward.
+    let f = fixture().await;
+    let (status, set) = call(
+        &f.app,
+        "POST",
+        "/botclaimtok/setBulkDeliveryConfig",
+        Some("application/json"),
+        r#"{"telegram_api_base":"http://127.0.0.1:9123","target_msgs_per_sec":5}"#,
+    )
+    .await;
+    assert_eq!(status, 200);
+    assert_eq!(set["result"]["telegram_api_base"], "http://127.0.0.1:9123");
+    assert_eq!(set["result"]["target_msgs_per_sec"], 5.0);
+    // Zero getMe calls happened for claimtok.
+    assert_eq!(
+        f.calls
+            .lock()
+            .unwrap()
+            .get("claimtok")
+            .copied()
+            .unwrap_or(0),
+        0
+    );
+    // Bot row exists (registered, telegram_user_id unknown/None) and config row
+    // contains the api_base.
+    let id = bot_id_for("claimtok");
+    assert!(f.store.readers.bot(id).unwrap().is_some());
+    let cfg = f
+        .store
+        .readers
+        .config(id)
+        .unwrap()
+        .expect("config row should exist after claim");
+    assert!(cfg.contains("telegram_api_base"));
+    assert!(cfg.contains("http://127.0.0.1:9123"));
+}
+#[tokio::test]
+async fn claim_without_base_still_needs_getme() {
+    // I-2: unknown token + setBulkDeliveryConfig with NO telegram_api_base still
+    // requires getMe against the global host; the token "bad" is rejected 401 and
+    // no bot is registered.
+    let f = fixture().await;
+    let (status, _) = call(
+        &f.app,
+        "POST",
+        "/botbad/setBulkDeliveryConfig",
+        Some("application/json"),
+        "{}",
+    )
+    .await;
+    assert_eq!(status, 401);
+    assert_eq!(f.calls.lock().unwrap()["bad"], 1);
+    assert!(f.store.readers.bot(bot_id_for("bad")).unwrap().is_none());
+}
+#[tokio::test]
+async fn claim_non_http_base_still_needs_getme() {
+    // I-3: unknown token + telegram_api_base that is NOT http(s):// (e.g. ftp://x)
+    // does NOT trigger the claim gate; getMe still runs against the global host,
+    // so token "bad" is rejected 401 and no bot is registered.
+    let f = fixture().await;
+    let (status, _) = call(
+        &f.app,
+        "POST",
+        "/botbad/setBulkDeliveryConfig",
+        Some("application/json"),
+        r#"{"telegram_api_base":"ftp://x"}"#,
+    )
+    .await;
+    assert_eq!(status, 401);
+    assert_eq!(f.calls.lock().unwrap()["bad"], 1);
+    assert!(f.store.readers.bot(bot_id_for("bad")).unwrap().is_none());
+}
+#[tokio::test]
+async fn authenticated_claimed_bot_skips_getme() {
+    // I-4: after a claim, a second setBulkDeliveryConfig for the same token goes
+    // through authenticate's known-bot fast path (readers.bot.is_some()) and does
+    // NOT trigger another getMe — calls stay at 0.
+    let f = fixture().await;
+    let (status, _) = call(
+        &f.app,
+        "POST",
+        "/botclaimtok/setBulkDeliveryConfig",
+        Some("application/json"),
+        r#"{"telegram_api_base":"http://127.0.0.1:9123","target_msgs_per_sec":5}"#,
+    )
+    .await;
+    assert_eq!(status, 200);
+    let (status, second) = call(
+        &f.app,
+        "POST",
+        "/botclaimtok/setBulkDeliveryConfig",
+        Some("application/json"),
+        r#"{"telegram_api_base":"http://127.0.0.1:9124","target_msgs_per_sec":7}"#,
+    )
+    .await;
+    assert_eq!(status, 200);
+    assert_eq!(second["result"]["target_msgs_per_sec"], 7.0);
+    assert_eq!(
+        f.calls
+            .lock()
+            .unwrap()
+            .get("claimtok")
+            .copied()
+            .unwrap_or(0),
+        0
     );
 }

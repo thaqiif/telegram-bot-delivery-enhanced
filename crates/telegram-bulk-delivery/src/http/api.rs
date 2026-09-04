@@ -2,6 +2,7 @@ use crate::{
     api_model::{parse_envelope, EnvelopeError},
     auth::{KeyRing, Purpose},
     domain::BotId,
+    http::resolve_api_url,
     store::{FileRow, RecipientInsert, Store, StoreError, WriterCmd},
 };
 use axum::{
@@ -188,11 +189,11 @@ async fn authenticate(s: &ApiState, token: &str) -> Result<BotId, Response> {
         .acquire_owned()
         .await
         .map_err(|_| error(StatusCode::SERVICE_UNAVAILABLE, "telegram unavailable"))?;
-    let url = format!(
-        "{}/bot{}/getMe",
-        s.telegram_base.trim_end_matches('/'),
-        token
-    );
+    // getMe is only reached for an unknown bot (no `bots` row), which by the
+    // bots -> bot_configs FK can have no config row yet, so there is no
+    // per-bot base to resolve here: always global. A config-claimed bot
+    // registers via the claim path and never needs this getMe fallback.
+    let url = resolve_api_url(&s.telegram_base, None, token, "getMe");
     let response = s
         .client
         .get(url)
@@ -245,7 +246,7 @@ async fn authenticate(s: &ApiState, token: &str) -> Result<BotId, Response> {
     Ok(id)
 }
 fn defaults() -> Value {
-    json!({"target_msgs_per_sec":20.0,"retry_max_attempts":8,"retry_base_ms":500,"retry_max_ms":60000,"retry_jitter":"full","retryable_classes":["flood","transient"],"ambiguity_policy":"at_least_once","job_deadline_secs":86400,"fairness_weight":1,"completion_webhook_url":null,"webhook_secret_configured":false,"webhook_max_attempts":10,"webhook_retry_base_ms":1000,"webhook_retry_max_ms":300000})
+    json!({"target_msgs_per_sec":20.0,"retry_max_attempts":8,"retry_base_ms":500,"retry_max_ms":60000,"retry_jitter":"full","retryable_classes":["flood","transient"],"ambiguity_policy":"at_least_once","job_deadline_secs":86400,"fairness_weight":1,"completion_webhook_url":null,"webhook_secret_configured":false,"webhook_max_attempts":10,"webhook_retry_base_ms":1000,"webhook_retry_max_ms":300000,"telegram_api_base":null})
 }
 #[allow(clippy::result_large_err)]
 fn current(s: &ApiState, id: BotId) -> Result<Value, Response> {
@@ -319,6 +320,28 @@ fn clamp(mut v: Value) -> Value {
     if let Some(x) = o.get("target_msgs_per_sec").and_then(Value::as_f64) {
         o.insert("target_msgs_per_sec".into(), json!(x.clamp(0.1, 25.0)));
     }
+    // telegram_api_base: nullable string. Coerce garbage to null; strings must
+    // be trimmed and actually http(s):// (or a {token}-containing http(s) base).
+    // Anything else is treated as unset (global fallback). No reachability check.
+    match o.get("telegram_api_base") {
+        None | Some(Value::Null) => {}
+        Some(Value::String(_)) => {
+            let trimmed = o
+                .get("telegram_api_base")
+                .and_then(Value::as_str)
+                .map(str::trim)
+                .unwrap_or("");
+            let keep = trimmed.starts_with("http://") || trimmed.starts_with("https://");
+            if keep {
+                o.insert("telegram_api_base".into(), json!(trimmed));
+            } else {
+                o.insert("telegram_api_base".into(), Value::Null);
+            }
+        }
+        Some(_) => {
+            o.insert("telegram_api_base".into(), Value::Null);
+        }
+    }
     o.insert(
         "retryable_classes_json".into(),
         Value::String(
@@ -331,31 +354,18 @@ fn clamp(mut v: Value) -> Value {
     );
     v
 }
-async fn set_config(
-    State(s): State<ApiState>,
-    Path(token): Path<String>,
-    req: Request,
+// Shared tail for both claim and non-claim paths: merge patch -> clamp ->
+// webhook-secret -> UpsertConfig -> response.
+async fn finish_set_config(
+    s: &ApiState,
+    id: BotId,
+    patch: Value,
+    mut base_config: Value,
 ) -> Response {
-    let id = match authenticate(&s, &token).await {
-        Ok(v) => v,
-        Err(e) => return e,
-    };
-    let bytes = match body_bytes(req.into_body(), s.max_body.min(256 * 1024)).await {
-        Ok(v) => v,
-        Err(e) => return e,
-    };
-    let patch: Value = match serde_json::from_slice(&bytes) {
-        Ok(Value::Object(o)) => Value::Object(o),
-        _ => return error(StatusCode::BAD_REQUEST, "config must be an object"),
-    };
-    let mut config = match current(&s, id) {
-        Ok(v) => v,
-        Err(e) => return e,
-    };
-    if let (Value::Object(base), Value::Object(p)) = (&mut config, patch) {
+    if let (Value::Object(base), Value::Object(p)) = (&mut base_config, patch) {
         base.extend(p)
     }
-    config = clamp(config);
+    let mut config = clamp(base_config);
     let mut secret = None;
     let mut encrypted_secret = None;
     if config
@@ -390,6 +400,88 @@ async fn set_config(
         config["webhook_secret"] = json!(x)
     }
     axum::Json(json!({"ok":true,"result":config})).into_response()
+}
+
+async fn set_config(
+    State(s): State<ApiState>,
+    Path(token): Path<String>,
+    req: Request,
+) -> Response {
+    // 1) Derive BotId first (cheap, no I/O, no network).
+    let id = s.keys.bot_id(token.as_bytes());
+
+    // 2) Known-bot fast path: read readers.bot once and reuse `is_known` in the
+    //    non-claim branch below so known bots skip authenticate()'s second
+    //    readers.bot read and its getMe semaphore (meant for outbound Telegram).
+    let is_known = match s.store.readers.bot(id) {
+        Ok(v) => v.is_some(),
+        Err(e) => return error(StatusCode::SERVICE_UNAVAILABLE, e.to_string()),
+    };
+
+    // 3) Read the patch body ONCE before any branch — both paths need it.
+    let bytes = match body_bytes(req.into_body(), s.max_body.min(256 * 1024)).await {
+        Ok(v) => v,
+        Err(e) => return e,
+    };
+    let patch: Value = match serde_json::from_slice(&bytes) {
+        Ok(Value::Object(o)) => Value::Object(o),
+        _ => return error(StatusCode::BAD_REQUEST, "config must be an object"),
+    };
+
+    // CLAIM GATE: only an http(s):// -prefixed NON-EMPTY STRING may claim.
+    // JSON null, "", whitespace, or any non-http(s) value (e.g. "ftp://x",
+    // numbers, objects) MUST NOT claim — those fall through to
+    // authenticate()/getMe exactly as today, so the register-without-getMe
+    // surface stays as narrow as the feature allows.
+    let patch_has_base = patch
+        .get("telegram_api_base")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|v| v.starts_with("http://") || v.starts_with("https://"))
+        .is_some();
+
+    if !is_known && patch_has_base {
+        // CLAIM PATH — register without getMe.
+        // No s.telegram semaphore, no reqwest call, no negative-cache write,
+        // no token-validation-failure metric.
+        // Encrypt the token exactly as authenticate does, then UpsertBot with
+        // telegram_user_id = None (unknown until a future getMe if ever).
+        let enc = match s.keys.encrypt(id, Purpose::BotToken, token.as_bytes()) {
+            Ok(v) => v,
+            Err(e) => return error(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
+        };
+        if let Err(e) = s.store.writer.execute(WriterCmd::UpsertBot {
+            bot_id: id,
+            token_nonce: enc.nonce,
+            token_ciphertext: enc.ciphertext,
+            token_kid: enc.key_id,
+            telegram_user_id: None,
+            now_unix: now(),
+        }) {
+            return error(StatusCode::SERVICE_UNAVAILABLE, e.to_string());
+        }
+
+        // Proceed through the shared config-merge/clamp/UpsertConfig tail.
+        // base_config is defaults() because no config row exists yet.
+        return finish_set_config(&s, id, patch, defaults()).await;
+    }
+
+    // NON-CLAIM PATH: known bots skip authenticate (their bot_id hash is already
+    // valid); unknown bots keep the full authenticate/getMe semantics
+    // (negative-cache, metrics, UpsertBot with telegram_user_id=Some).
+    let id = if is_known {
+        id
+    } else {
+        match authenticate(&s, &token).await {
+            Ok(v) => v,
+            Err(e) => return e,
+        }
+    };
+    let base_config = match current(&s, id) {
+        Ok(v) => v,
+        Err(e) => return e,
+    };
+    finish_set_config(&s, id, patch, base_config).await
 }
 async fn reset_config(State(s): State<ApiState>, Path(token): Path<String>) -> Response {
     let id = match authenticate(&s, &token).await {

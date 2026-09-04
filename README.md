@@ -47,7 +47,7 @@ Logs: `journalctl -u telegram-bulk-delivery -f`
 
 ### 3. Expose it
 
-The service binds `127.0.0.1:8080` by default. Put a TLS proxy in front for public exposure:
+The service binds `0.0.0.0:8080` by default. Put a TLS proxy in front for public exposure:
 
 ```nginx
 # /etc/nginx/sites-available/tgbulk
@@ -143,12 +143,46 @@ curl -s -X POST "http://127.0.0.1:8080/bot${TOKEN}/setBulkDeliveryConfig" \
 curl -s "http://127.0.0.1:8080/bot${TOKEN}/getBulkDeliveryConfig"
 curl -s -X POST "http://127.0.0.1:8080/bot${TOKEN}/resetBulkDeliveryConfig"
 ```
+### Per-bot API base (Telegram test env / local bot servers)
+
+A bot can override the upstream endpoint instead of using the process default
+(`TELEGRAM_API_BASE`, by default `https://api.telegram.org`). Set
+`telegram_api_base` in its config:
+
+```sh
+curl -s -X POST "http://127.0.0.1:8080/bot${TOKEN}/setBulkDeliveryConfig" \
+  -H 'Content-Type: application/json' \
+  -d '{"telegram_api_base":"http://127.0.0.1:9123"}'
+```
+
+Two layouts are supported by the URL builder; both accept any `http://` or
+`https://` host (plain prefix or a `{token}` template). Non-`http(s)` values are
+rejected and stored as absent (the bot then uses the global base):
+
+* **Plain prefix** — `http://127.0.0.1:9123` resolves to
+  `http://127.0.0.1:9123/bot<TOKEN>/<method>`.
+* **Template** — `https://api.telegram.org/bot{token}/test` resolves to
+  `https://api.telegram.org/bot<TOKEN>/test/<method>` (every `{token}`
+  occurrence is substituted). This is the shape Telegram's test environment
+  expects, so a test-environment token works with **no local rewrite proxy**:
+  point the bot at `https://api.telegram.org/bot{token}/test`.
+
+Snapshot semantics: `telegram_api_base` is snapshotted per job — changing it
+applies only to jobs submitted after the change. Already-queued recipients keep
+the old base until they are re-submitted. An absent/empty/NULL base falls back
+to the global host; a *set but unreachable* base is not silently replaced
+(it fails through the normal retry path).
+
+> A brand-new token claimed with an `http(s)://` `telegram_api_base` registers
+> without a `getMe` round-trip (see [`docs/SECURITY.md`](docs/SECURITY.md) for
+> the token-only trust boundary). For a token without a base, the service still
+> performs a `getMe` against the configured base to authenticate the token.
 
 ### Endpoints
 
 - `GET /healthz` — process liveness
 - `GET /readyz` — durable-acceptance readiness
-- `GET /metrics` — Prometheus exposition (bind locally or protect at the proxy)
+- `GET /metrics` — Prometheus exposition; bound aggregate labels only, but protect at the proxy (operationally sensitive)
 - `POST /bot<TOKEN>/<method>` — submit one bulk job (any committed outbound method; multipart for media)
 - `GET /bot<TOKEN>/bulk/jobs/<JOB_ID>` — status/progress/ETA
 - `GET /bot<TOKEN>/bulk/jobs/<JOB_ID>/results` — stable paginated results
@@ -221,7 +255,7 @@ On small (1 CPU / 1 GiB) machines cap the build: `CARGO_BUILD_JOBS=1 cargo build
 | Key | Default | Meaning |
 |-----|---------|---------|
 | `database_path` | `data/…db` | SQLite database (keep on local persistent disk) |
-| `bind` | `127.0.0.1:8080` | HTTP listen address |
+| `bind` | `0.0.0.0:8080` | HTTP listen address |
 | `max_recipients_per_job` | `100000` | hard per-job ceiling |
 | `global_nonterminal_recipients` | `500000` | global in-flight ceiling across all jobs |
 | `request_body_bytes` / `multipart_body_bytes` | 32 MiB / 64 MiB | submit body caps |
@@ -237,3 +271,16 @@ On small (1 CPU / 1 GiB) machines cap the build: `CARGO_BUILD_JOBS=1 cargo build
 - Bot tokens are secrets: TLS at the proxy, never log token-bearing paths.
 - SQLite, the DB, and file blobs must stay on the same filesystem.
 - Bot API method metadata is committed in `crates/telegram-api-meta`; see [`docs/COMPATIBILITY.md`](docs/COMPATIBILITY.md) for the review/update workflow.
+
+---
+
+## Upgrade note: telegram_api_base migration
+
+This release adds the `telegram_api_base` column via migration `0004`. The
+`bot_configs` table is `STRICT` with an explicit 21-column `INSERT`; the prior
+release wrote a 20-value implicit-column insert, so **downgrade is backup-restore
+only** — restoring a pre-migration snapshot into the new release works, but
+rolling the new DB backward into the previous release's binary fails on the
+column count. Snapshot semantics: switching a bot's base affects only jobs
+submitted after the change (each job snapshots the config at accept time).
+

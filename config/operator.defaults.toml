@@ -1,5 +1,5 @@
 database_path = "data/telegram-bulk-delivery.db"
-bind = "127.0.0.1:8080"
+bind = "0.0.0.0:8080"
 key_id = "v1"
 writer_queue_capacity = 128
 reader_queue_capacity = 64

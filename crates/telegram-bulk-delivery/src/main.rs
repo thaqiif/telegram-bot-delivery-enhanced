@@ -2,11 +2,11 @@ use std::{env, path::Path, sync::Arc, time::Duration};
 use telegram_bulk_delivery::{
     auth::{EncryptedSecret, KeyRing, Purpose},
     config::OperatorConfig,
-    domain::{AmbiguityPolicy, BotId},
-    http::{api_router, router, ApiState, HealthState, Readiness},
+    domain::BotId,
+    http::{api_router, resolve_api_url, router, ApiState, HealthState, Readiness},
     observe::{cgroup_memory_current_bytes, checkpoint_mode, rss_bytes},
     scheduler::{
-        dispatcher::{AttemptPolicy, Dispatcher, LeasedCall},
+        dispatcher::{snapshot_policy_and_base, Dispatcher, LeasedCall},
         fairness::Wdrr,
         limiters::{Limiters, Scope},
         RECONCILE_INTERVAL_SECS,
@@ -89,39 +89,10 @@ fn merge_params(
     Ok(merged)
 }
 
-fn attempt_policy(item: &DispatchItem) -> AttemptPolicy {
-    let config: serde_json::Value =
-        serde_json::from_str(&item.policy_snapshot_json).unwrap_or_else(|_| serde_json::json!({}));
-    let ambiguity = match config
-        .get("ambiguity_policy")
-        .and_then(serde_json::Value::as_str)
-    {
-        Some("at_most_once") => AmbiguityPolicy::AtMostOnce,
-        Some("method_aware") => AmbiguityPolicy::MethodAware,
-        _ => AmbiguityPolicy::AtLeastOnce,
-    };
-    AttemptPolicy {
-        retry_max: config
-            .get("retry_max_attempts")
-            .and_then(serde_json::Value::as_u64)
-            .and_then(|n| u16::try_from(n).ok())
-            .unwrap_or(8),
-        retry_consumed: item.retry_consumed,
-        retry_base_ms: config
-            .get("retry_base_ms")
-            .and_then(serde_json::Value::as_u64)
-            .unwrap_or(500),
-        retry_max_ms: config
-            .get("retry_max_ms")
-            .and_then(serde_json::Value::as_u64)
-            .unwrap_or(60_000),
-        ambiguity,
-    }
-}
-
 async fn send_telegram(
     keys: &KeyRing,
-    base: &str,
+    global_base: &str,
+    per_bot_base: Option<&str>,
     client: &reqwest::Client,
     bot_id: BotId,
     item: DispatchItem,
@@ -138,7 +109,7 @@ async fn send_telegram(
     let token = std::str::from_utf8(&token).map_err(|_| ())?;
     let params = merge_params(&item.shared_params_json, &item.patch_json)?;
     let spec = telegram_api_meta::method(&item.method).ok_or(())?;
-    let url = format!("{}/bot{}/{}", base.trim_end_matches('/'), token, spec.name);
+    let url = resolve_api_url(global_base, per_bot_base, token, spec.name);
     let response = if item.files.is_empty() {
         client
             .post(url)
@@ -511,10 +482,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     wdrr.complete(bot_id);
                                     return;
                                 };
-                                let policy = attempt_policy(&item);
+                                let (policy, per_bot_base_opt) = snapshot_policy_and_base(&item);
                                 in_flight += 1;
                                 let keys2 = dispatch_keys.clone();
-                                let base2 = telegram_base.clone();
+                                let global_base = telegram_base.clone();
                                 let client2 = client.clone();
                                 let tx2 = done_tx.clone();
                                 let method_spec = actual_spec;
@@ -569,7 +540,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     );
                                     let attempt = tokio::time::timeout(
                                         send_budget,
-                                        send_telegram(&keys2, &base2, &client2, bot_id, item),
+                                        send_telegram(&keys2, &global_base, per_bot_base_opt.as_deref(), &client2, bot_id, item),
                                     )
                                     .await;
                                     let result = match attempt {
