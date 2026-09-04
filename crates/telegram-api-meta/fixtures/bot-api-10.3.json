@@ -1,0 +1,3623 @@
+{
+  "bot_api_version": "10.3",
+  "methods": [
+    {
+      "family": "send",
+      "name": "sendMessage",
+      "params": [
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "chat_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "text",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "parse_mode",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "array",
+          "name": "entities",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "object",
+          "name": "link_preview_options",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "disable_notification",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "protect_content",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "object",
+          "name": "reply_parameters",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "object",
+          "name": "reply_markup",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "allow_paid_broadcast",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "message_thread_id",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "business_connection_id",
+          "required": false
+        }
+      ],
+      "projection": "message"
+    },
+    {
+      "family": "forward",
+      "name": "forwardMessage",
+      "params": [
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "chat_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "from_chat_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "message_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "message_thread_id",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "disable_notification",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "protect_content",
+          "required": false
+        }
+      ],
+      "projection": "message"
+    },
+    {
+      "family": "forward",
+      "name": "forwardMessages",
+      "params": [
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "chat_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "from_chat_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "array",
+          "name": "message_ids",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "message_thread_id",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "disable_notification",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "protect_content",
+          "required": false
+        }
+      ],
+      "projection": "first_message"
+    },
+    {
+      "family": "copy",
+      "name": "copyMessage",
+      "params": [
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "chat_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "from_chat_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "message_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "message_thread_id",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "caption",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "parse_mode",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "array",
+          "name": "caption_entities",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "disable_notification",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "protect_content",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "object",
+          "name": "reply_parameters",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "object",
+          "name": "reply_markup",
+          "required": false
+        }
+      ],
+      "projection": "message"
+    },
+    {
+      "family": "copy",
+      "name": "copyMessages",
+      "params": [
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "chat_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "from_chat_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "array",
+          "name": "message_ids",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "message_thread_id",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "disable_notification",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "protect_content",
+          "required": false
+        }
+      ],
+      "projection": "first_message"
+    },
+    {
+      "family": "send",
+      "name": "sendPhoto",
+      "params": [
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "chat_id",
+          "required": true
+        },
+        {
+          "file": true,
+          "kind": "input_file",
+          "name": "photo",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "caption",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "parse_mode",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "array",
+          "name": "caption_entities",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "has_spoiler",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "disable_notification",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "protect_content",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "object",
+          "name": "reply_parameters",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "object",
+          "name": "reply_markup",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "allow_paid_broadcast",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "message_thread_id",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "business_connection_id",
+          "required": false
+        }
+      ],
+      "projection": "message"
+    },
+    {
+      "family": "send",
+      "name": "sendAudio",
+      "params": [
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "chat_id",
+          "required": true
+        },
+        {
+          "file": true,
+          "kind": "input_file",
+          "name": "audio",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "caption",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "parse_mode",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "array",
+          "name": "caption_entities",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "duration",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "performer",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "title",
+          "required": true
+        },
+        {
+          "file": true,
+          "kind": "input_file",
+          "name": "thumbnail",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "disable_notification",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "protect_content",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "object",
+          "name": "reply_parameters",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "object",
+          "name": "reply_markup",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "allow_paid_broadcast",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "message_thread_id",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "business_connection_id",
+          "required": false
+        }
+      ],
+      "projection": "message"
+    },
+    {
+      "family": "send",
+      "name": "sendDocument",
+      "params": [
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "chat_id",
+          "required": true
+        },
+        {
+          "file": true,
+          "kind": "input_file",
+          "name": "document",
+          "required": true
+        },
+        {
+          "file": true,
+          "kind": "input_file",
+          "name": "thumbnail",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "caption",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "parse_mode",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "array",
+          "name": "caption_entities",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "disable_notification",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "protect_content",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "object",
+          "name": "reply_parameters",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "object",
+          "name": "reply_markup",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "allow_paid_broadcast",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "message_thread_id",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "business_connection_id",
+          "required": false
+        }
+      ],
+      "projection": "message"
+    },
+    {
+      "family": "send",
+      "name": "sendVideo",
+      "params": [
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "chat_id",
+          "required": true
+        },
+        {
+          "file": true,
+          "kind": "input_file",
+          "name": "video",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "duration",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "width",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "height",
+          "required": false
+        },
+        {
+          "file": true,
+          "kind": "input_file",
+          "name": "thumbnail",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "caption",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "parse_mode",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "array",
+          "name": "caption_entities",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "has_spoiler",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "supports_streaming",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "disable_notification",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "protect_content",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "object",
+          "name": "reply_parameters",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "object",
+          "name": "reply_markup",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "allow_paid_broadcast",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "message_thread_id",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "business_connection_id",
+          "required": false
+        }
+      ],
+      "projection": "message"
+    },
+    {
+      "family": "send",
+      "name": "sendAnimation",
+      "params": [
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "chat_id",
+          "required": true
+        },
+        {
+          "file": true,
+          "kind": "input_file",
+          "name": "animation",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "duration",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "width",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "height",
+          "required": false
+        },
+        {
+          "file": true,
+          "kind": "input_file",
+          "name": "thumbnail",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "caption",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "parse_mode",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "array",
+          "name": "caption_entities",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "has_spoiler",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "disable_notification",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "protect_content",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "object",
+          "name": "reply_parameters",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "object",
+          "name": "reply_markup",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "allow_paid_broadcast",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "message_thread_id",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "business_connection_id",
+          "required": false
+        }
+      ],
+      "projection": "message"
+    },
+    {
+      "family": "send",
+      "name": "sendVoice",
+      "params": [
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "chat_id",
+          "required": true
+        },
+        {
+          "file": true,
+          "kind": "input_file",
+          "name": "voice",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "caption",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "parse_mode",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "array",
+          "name": "caption_entities",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "duration",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "disable_notification",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "protect_content",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "object",
+          "name": "reply_parameters",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "object",
+          "name": "reply_markup",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "allow_paid_broadcast",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "message_thread_id",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "business_connection_id",
+          "required": false
+        }
+      ],
+      "projection": "message"
+    },
+    {
+      "family": "send",
+      "name": "sendVideoNote",
+      "params": [
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "chat_id",
+          "required": true
+        },
+        {
+          "file": true,
+          "kind": "input_file",
+          "name": "video_note",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "duration",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "width",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "height",
+          "required": false
+        },
+        {
+          "file": true,
+          "kind": "input_file",
+          "name": "thumbnail",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "disable_notification",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "protect_content",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "object",
+          "name": "reply_parameters",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "object",
+          "name": "reply_markup",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "allow_paid_broadcast",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "message_thread_id",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "business_connection_id",
+          "required": false
+        }
+      ],
+      "projection": "message"
+    },
+    {
+      "family": "send",
+      "name": "sendMediaGroup",
+      "params": [
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "chat_id",
+          "required": true
+        },
+        {
+          "file": true,
+          "kind": "array",
+          "name": "media",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "disable_notification",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "protect_content",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "object",
+          "name": "reply_parameters",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "message_thread_id",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "business_connection_id",
+          "required": false
+        }
+      ],
+      "projection": "first_message"
+    },
+    {
+      "family": "send",
+      "name": "sendLocation",
+      "params": [
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "chat_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "float",
+          "name": "latitude",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "float",
+          "name": "longitude",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "float",
+          "name": "horizontal_accuracy",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "live_period",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "heading",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "proximity_alert_radius",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "disable_notification",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "protect_content",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "object",
+          "name": "reply_parameters",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "object",
+          "name": "reply_markup",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "allow_paid_broadcast",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "message_thread_id",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "business_connection_id",
+          "required": false
+        }
+      ],
+      "projection": "message"
+    },
+    {
+      "family": "send",
+      "name": "sendVenue",
+      "params": [
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "chat_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "float",
+          "name": "latitude",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "float",
+          "name": "longitude",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "title",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "address",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "foursquare_id",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "foursquare_type",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "google_place_id",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "google_place_type",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "disable_notification",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "protect_content",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "object",
+          "name": "reply_parameters",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "object",
+          "name": "reply_markup",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "allow_paid_broadcast",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "message_thread_id",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "business_connection_id",
+          "required": false
+        }
+      ],
+      "projection": "message"
+    },
+    {
+      "family": "send",
+      "name": "sendContact",
+      "params": [
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "chat_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "phone_number",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "first_name",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "last_name",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "vcard",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "disable_notification",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "protect_content",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "object",
+          "name": "reply_parameters",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "object",
+          "name": "reply_markup",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "allow_paid_broadcast",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "message_thread_id",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "business_connection_id",
+          "required": false
+        }
+      ],
+      "projection": "message"
+    },
+    {
+      "family": "send",
+      "name": "sendPoll",
+      "params": [
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "chat_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "question",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "array",
+          "name": "options",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "is_anonymous",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "type",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "allows_multiple_answers",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "correct_option_id",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "explanation",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "explanation_parse_mode",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "array",
+          "name": "explanation_entities",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "open_period",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "close_date",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "is_closed",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "disable_notification",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "protect_content",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "object",
+          "name": "reply_parameters",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "object",
+          "name": "reply_markup",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "allow_paid_broadcast",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "message_thread_id",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "business_connection_id",
+          "required": false
+        }
+      ],
+      "projection": "message"
+    },
+    {
+      "family": "send",
+      "name": "sendDice",
+      "params": [
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "chat_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "emoji",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "disable_notification",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "protect_content",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "object",
+          "name": "reply_parameters",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "object",
+          "name": "reply_markup",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "allow_paid_broadcast",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "message_thread_id",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "business_connection_id",
+          "required": false
+        }
+      ],
+      "projection": "message"
+    },
+    {
+      "family": "send",
+      "name": "sendChatAction",
+      "params": [
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "chat_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "action",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "message_thread_id",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "business_connection_id",
+          "required": false
+        }
+      ],
+      "projection": "none"
+    },
+    {
+      "family": "edit",
+      "name": "setMessageReaction",
+      "params": [
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "chat_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "message_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "array",
+          "name": "reaction",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "is_big",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "business_connection_id",
+          "required": false
+        }
+      ],
+      "projection": "none"
+    },
+    {
+      "family": "edit",
+      "name": "editMessageText",
+      "params": [
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "chat_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "message_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "inline_message_id",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "text",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "parse_mode",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "array",
+          "name": "entities",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "object",
+          "name": "link_preview_options",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "object",
+          "name": "reply_markup",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "business_connection_id",
+          "required": false
+        }
+      ],
+      "projection": "message"
+    },
+    {
+      "family": "edit",
+      "name": "editMessageCaption",
+      "params": [
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "chat_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "message_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "inline_message_id",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "caption",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "parse_mode",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "array",
+          "name": "caption_entities",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "object",
+          "name": "reply_markup",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "business_connection_id",
+          "required": false
+        }
+      ],
+      "projection": "message"
+    },
+    {
+      "family": "edit",
+      "name": "editMessageMedia",
+      "params": [
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "chat_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "message_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "inline_message_id",
+          "required": false
+        },
+        {
+          "file": true,
+          "kind": "input_file",
+          "name": "media",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "object",
+          "name": "reply_markup",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "business_connection_id",
+          "required": false
+        }
+      ],
+      "projection": "message"
+    },
+    {
+      "family": "edit",
+      "name": "editMessageLiveLocation",
+      "params": [
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "chat_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "message_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "inline_message_id",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "float",
+          "name": "latitude",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "float",
+          "name": "longitude",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "float",
+          "name": "horizontal_accuracy",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "heading",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "proximity_alert_radius",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "object",
+          "name": "reply_markup",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "business_connection_id",
+          "required": false
+        }
+      ],
+      "projection": "message"
+    },
+    {
+      "family": "edit",
+      "name": "stopMessageLiveLocation",
+      "params": [
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "chat_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "message_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "inline_message_id",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "object",
+          "name": "reply_markup",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "business_connection_id",
+          "required": false
+        }
+      ],
+      "projection": "message"
+    },
+    {
+      "family": "edit",
+      "name": "editMessageReplyMarkup",
+      "params": [
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "chat_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "message_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "inline_message_id",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "object",
+          "name": "reply_markup",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "business_connection_id",
+          "required": false
+        }
+      ],
+      "projection": "message"
+    },
+    {
+      "family": "edit",
+      "name": "stopPoll",
+      "params": [
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "chat_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "message_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "object",
+          "name": "reply_markup",
+          "required": false
+        }
+      ],
+      "projection": "none"
+    },
+    {
+      "family": "delete",
+      "name": "deleteMessage",
+      "params": [
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "chat_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "message_id",
+          "required": true
+        }
+      ],
+      "projection": "none"
+    },
+    {
+      "family": "delete",
+      "name": "deleteMessages",
+      "params": [
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "chat_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "array",
+          "name": "message_ids",
+          "required": true
+        }
+      ],
+      "projection": "none"
+    },
+    {
+      "family": "send",
+      "name": "sendPaidMedia",
+      "params": [
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "chat_id",
+          "required": true
+        },
+        {
+          "file": true,
+          "kind": "array",
+          "name": "media",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "disable_notification",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "protect_content",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "object",
+          "name": "reply_parameters",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "object",
+          "name": "reply_markup",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "business_connection_id",
+          "required": false
+        }
+      ],
+      "projection": "message"
+    },
+    {
+      "family": "send",
+      "name": "sendChecklist",
+      "params": [
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "chat_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "text",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "parse_mode",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "array",
+          "name": "entities",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "disable_notification",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "protect_content",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "object",
+          "name": "reply_parameters",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "object",
+          "name": "reply_markup",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "message_thread_id",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "business_connection_id",
+          "required": false
+        }
+      ],
+      "projection": "message"
+    },
+    {
+      "family": "edit",
+      "name": "editMessageChecklist",
+      "params": [
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "chat_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "message_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "text",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "parse_mode",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "array",
+          "name": "entities",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "object",
+          "name": "reply_markup",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "business_connection_id",
+          "required": false
+        }
+      ],
+      "projection": "message"
+    },
+    {
+      "family": "payment",
+      "name": "sendInvoice",
+      "params": [
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "chat_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "title",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "description",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "payload",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "provider_token",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "currency",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "array",
+          "name": "prices",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "max_tip_amount",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "array",
+          "name": "suggested_tip_amounts",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "start_parameter",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "provider_data",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "need_name",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "need_phone_number",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "need_email",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "need_shipping_address",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "send_phone_number_to_provider",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "send_email_to_provider",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "is_flexible",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "disable_notification",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "protect_content",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "object",
+          "name": "reply_parameters",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "object",
+          "name": "reply_markup",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "message_thread_id",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "business_connection_id",
+          "required": false
+        }
+      ],
+      "projection": "message"
+    },
+    {
+      "family": "payment",
+      "name": "createInvoiceLink",
+      "params": [
+        {
+          "file": false,
+          "kind": "string",
+          "name": "title",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "description",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "payload",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "provider_token",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "currency",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "array",
+          "name": "prices",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "max_tip_amount",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "array",
+          "name": "suggested_tip_amounts",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "start_parameter",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "provider_data",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "need_name",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "need_phone_number",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "need_email",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "need_shipping_address",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "send_phone_number_to_provider",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "send_email_to_provider",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "is_flexible",
+          "required": false
+        }
+      ],
+      "projection": "none"
+    },
+    {
+      "family": "payment",
+      "name": "answerShippingQuery",
+      "params": [
+        {
+          "file": false,
+          "kind": "string",
+          "name": "shipping_query_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "ok",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "array",
+          "name": "shipping_options",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "error_message",
+          "required": false
+        }
+      ],
+      "projection": "none"
+    },
+    {
+      "family": "payment",
+      "name": "answerPreCheckoutQuery",
+      "params": [
+        {
+          "file": false,
+          "kind": "string",
+          "name": "pre_checkout_query_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "ok",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "error_message",
+          "required": false
+        }
+      ],
+      "projection": "none"
+    },
+    {
+      "family": "payment",
+      "name": "refundStarPayment",
+      "params": [
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "user_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "telegram_payment_charge_id",
+          "required": true
+        }
+      ],
+      "projection": "none"
+    },
+    {
+      "family": "payment",
+      "name": "editUserStarSubscription",
+      "params": [
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "user_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "telegram_payment_charge_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "is_canceled",
+          "required": false
+        }
+      ],
+      "projection": "none"
+    },
+    {
+      "family": "admin",
+      "name": "banChatMember",
+      "params": [
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "chat_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "user_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "until_date",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "revoke_messages",
+          "required": false
+        }
+      ],
+      "projection": "none"
+    },
+    {
+      "family": "admin",
+      "name": "unbanChatMember",
+      "params": [
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "chat_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "user_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "only_if_banned",
+          "required": false
+        }
+      ],
+      "projection": "none"
+    },
+    {
+      "family": "admin",
+      "name": "restrictChatMember",
+      "params": [
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "chat_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "user_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "object",
+          "name": "permissions",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "until_date",
+          "required": false
+        }
+      ],
+      "projection": "none"
+    },
+    {
+      "family": "admin",
+      "name": "promoteChatMember",
+      "params": [
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "chat_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "user_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "is_anonymous",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "can_manage_chat",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "can_manage_video_chats",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "can_delete_messages",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "can_restrict_members",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "can_promote_members",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "can_change_info",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "can_invite_users",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "can_post_messages",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "can_edit_messages",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "can_pin_messages",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "can_manage_topics",
+          "required": false
+        }
+      ],
+      "projection": "none"
+    },
+    {
+      "family": "admin",
+      "name": "setChatAdministratorCustomTitle",
+      "params": [
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "chat_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "user_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "custom_title",
+          "required": false
+        }
+      ],
+      "projection": "none"
+    },
+    {
+      "family": "admin",
+      "name": "banChatSenderChat",
+      "params": [
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "chat_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "sender_chat_id",
+          "required": false
+        }
+      ],
+      "projection": "none"
+    },
+    {
+      "family": "admin",
+      "name": "unbanChatSenderChat",
+      "params": [
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "chat_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "sender_chat_id",
+          "required": false
+        }
+      ],
+      "projection": "none"
+    },
+    {
+      "family": "admin",
+      "name": "setChatPermissions",
+      "params": [
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "chat_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "object",
+          "name": "permissions",
+          "required": false
+        }
+      ],
+      "projection": "none"
+    },
+    {
+      "family": "admin",
+      "name": "exportChatInviteLink",
+      "params": [
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "chat_id",
+          "required": true
+        }
+      ],
+      "projection": "none"
+    },
+    {
+      "family": "admin",
+      "name": "createChatInviteLink",
+      "params": [
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "chat_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "name",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "expire_date",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "member_limit",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "creates_join_request",
+          "required": false
+        }
+      ],
+      "projection": "none"
+    },
+    {
+      "family": "admin",
+      "name": "editChatInviteLink",
+      "params": [
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "chat_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "invite_link",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "name",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "expire_date",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "member_limit",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "creates_join_request",
+          "required": false
+        }
+      ],
+      "projection": "none"
+    },
+    {
+      "family": "admin",
+      "name": "revokeChatInviteLink",
+      "params": [
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "chat_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "invite_link",
+          "required": false
+        }
+      ],
+      "projection": "none"
+    },
+    {
+      "family": "admin",
+      "name": "approveChatJoinRequest",
+      "params": [
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "chat_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "user_id",
+          "required": true
+        }
+      ],
+      "projection": "none"
+    },
+    {
+      "family": "admin",
+      "name": "declineChatJoinRequest",
+      "params": [
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "chat_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "user_id",
+          "required": true
+        }
+      ],
+      "projection": "none"
+    },
+    {
+      "family": "admin",
+      "name": "setChatPhoto",
+      "params": [
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "chat_id",
+          "required": true
+        },
+        {
+          "file": true,
+          "kind": "input_file",
+          "name": "photo",
+          "required": true
+        }
+      ],
+      "projection": "none"
+    },
+    {
+      "family": "admin",
+      "name": "deleteChatPhoto",
+      "params": [
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "chat_id",
+          "required": true
+        }
+      ],
+      "projection": "none"
+    },
+    {
+      "family": "admin",
+      "name": "setChatTitle",
+      "params": [
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "chat_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "title",
+          "required": true
+        }
+      ],
+      "projection": "none"
+    },
+    {
+      "family": "admin",
+      "name": "setChatDescription",
+      "params": [
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "chat_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "description",
+          "required": false
+        }
+      ],
+      "projection": "none"
+    },
+    {
+      "family": "admin",
+      "name": "pinChatMessage",
+      "params": [
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "chat_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "message_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "disable_notification",
+          "required": false
+        }
+      ],
+      "projection": "none"
+    },
+    {
+      "family": "admin",
+      "name": "unpinChatMessage",
+      "params": [
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "chat_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "message_id",
+          "required": true
+        }
+      ],
+      "projection": "none"
+    },
+    {
+      "family": "admin",
+      "name": "unpinAllChatMessages",
+      "params": [
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "chat_id",
+          "required": true
+        }
+      ],
+      "projection": "none"
+    },
+    {
+      "family": "admin",
+      "name": "leaveChat",
+      "params": [
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "chat_id",
+          "required": true
+        }
+      ],
+      "projection": "none"
+    },
+    {
+      "family": "sticker",
+      "name": "sendSticker",
+      "params": [
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "chat_id",
+          "required": true
+        },
+        {
+          "file": true,
+          "kind": "input_file",
+          "name": "sticker",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "emoji",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "disable_notification",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "protect_content",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "object",
+          "name": "reply_parameters",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "object",
+          "name": "reply_markup",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "allow_paid_broadcast",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "message_thread_id",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "business_connection_id",
+          "required": false
+        }
+      ],
+      "projection": "message"
+    },
+    {
+      "family": "sticker",
+      "name": "uploadStickerFile",
+      "params": [
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "user_id",
+          "required": true
+        },
+        {
+          "file": true,
+          "kind": "input_file",
+          "name": "sticker",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "sticker_format",
+          "required": false
+        }
+      ],
+      "projection": "none"
+    },
+    {
+      "family": "sticker",
+      "name": "createNewStickerSet",
+      "params": [
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "user_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "name",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "title",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "sticker_type",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "array",
+          "name": "stickers",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "needs_repainting",
+          "required": false
+        }
+      ],
+      "projection": "none"
+    },
+    {
+      "family": "sticker",
+      "name": "addStickerToSet",
+      "params": [
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "user_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "name",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "object",
+          "name": "sticker",
+          "required": true
+        }
+      ],
+      "projection": "none"
+    },
+    {
+      "family": "sticker",
+      "name": "setStickerPositionInSet",
+      "params": [
+        {
+          "file": false,
+          "kind": "string",
+          "name": "sticker",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "position",
+          "required": false
+        }
+      ],
+      "projection": "none"
+    },
+    {
+      "family": "sticker",
+      "name": "deleteStickerFromSet",
+      "params": [
+        {
+          "file": false,
+          "kind": "string",
+          "name": "sticker",
+          "required": true
+        }
+      ],
+      "projection": "none"
+    },
+    {
+      "family": "sticker",
+      "name": "replaceStickerInSet",
+      "params": [
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "user_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "name",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "old_sticker",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "object",
+          "name": "sticker",
+          "required": true
+        }
+      ],
+      "projection": "none"
+    },
+    {
+      "family": "sticker",
+      "name": "setStickerEmojiList",
+      "params": [
+        {
+          "file": false,
+          "kind": "string",
+          "name": "sticker",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "array",
+          "name": "emoji_list",
+          "required": true
+        }
+      ],
+      "projection": "none"
+    },
+    {
+      "family": "sticker",
+      "name": "setStickerKeywords",
+      "params": [
+        {
+          "file": false,
+          "kind": "string",
+          "name": "sticker",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "array",
+          "name": "keywords",
+          "required": false
+        }
+      ],
+      "projection": "none"
+    },
+    {
+      "family": "sticker",
+      "name": "setStickerMaskPosition",
+      "params": [
+        {
+          "file": false,
+          "kind": "string",
+          "name": "sticker",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "object",
+          "name": "mask_position",
+          "required": false
+        }
+      ],
+      "projection": "none"
+    },
+    {
+      "family": "sticker",
+      "name": "setStickerSetTitle",
+      "params": [
+        {
+          "file": false,
+          "kind": "string",
+          "name": "name",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "title",
+          "required": true
+        }
+      ],
+      "projection": "none"
+    },
+    {
+      "family": "sticker",
+      "name": "deleteStickerSet",
+      "params": [
+        {
+          "file": false,
+          "kind": "string",
+          "name": "name",
+          "required": true
+        }
+      ],
+      "projection": "none"
+    },
+    {
+      "family": "sticker",
+      "name": "setStickerSetThumbnail",
+      "params": [
+        {
+          "file": false,
+          "kind": "string",
+          "name": "name",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "user_id",
+          "required": true
+        },
+        {
+          "file": true,
+          "kind": "input_file",
+          "name": "thumbnail",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "format",
+          "required": false
+        }
+      ],
+      "projection": "none"
+    },
+    {
+      "family": "sticker",
+      "name": "setCustomEmojiStickerSetThumbnail",
+      "params": [
+        {
+          "file": false,
+          "kind": "string",
+          "name": "name",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "custom_emoji_id",
+          "required": false
+        }
+      ],
+      "projection": "none"
+    },
+    {
+      "family": "other",
+      "name": "answerInlineQuery",
+      "params": [
+        {
+          "file": false,
+          "kind": "string",
+          "name": "inline_query_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "array",
+          "name": "results",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "cache_time",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "is_personal",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "next_offset",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "object",
+          "name": "button",
+          "required": false
+        }
+      ],
+      "projection": "none"
+    },
+    {
+      "family": "other",
+      "name": "answerWebAppQuery",
+      "params": [
+        {
+          "file": false,
+          "kind": "string",
+          "name": "web_app_query_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "object",
+          "name": "result",
+          "required": true
+        }
+      ],
+      "projection": "message"
+    },
+    {
+      "family": "other",
+      "name": "savePreparedInlineMessage",
+      "params": [
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "user_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "object",
+          "name": "result",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "allow_user_chats",
+          "required": false
+        }
+      ],
+      "projection": "none"
+    },
+    {
+      "family": "other",
+      "name": "answerCallbackQuery",
+      "params": [
+        {
+          "file": false,
+          "kind": "string",
+          "name": "callback_query_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "text",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "show_alert",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "url",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "integer",
+          "name": "cache_time",
+          "required": false
+        }
+      ],
+      "projection": "none"
+    },
+    {
+      "family": "other",
+      "name": "setMyCommands",
+      "params": [
+        {
+          "file": false,
+          "kind": "array",
+          "name": "commands",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "object",
+          "name": "scope",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "language_code",
+          "required": false
+        }
+      ],
+      "projection": "none"
+    },
+    {
+      "family": "other",
+      "name": "deleteMyCommands",
+      "params": [
+        {
+          "file": false,
+          "kind": "object",
+          "name": "scope",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "language_code",
+          "required": false
+        }
+      ],
+      "projection": "none"
+    },
+    {
+      "family": "other",
+      "name": "setMyName",
+      "params": [
+        {
+          "file": false,
+          "kind": "string",
+          "name": "name",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "language_code",
+          "required": false
+        }
+      ],
+      "projection": "none"
+    },
+    {
+      "family": "other",
+      "name": "setMyDescription",
+      "params": [
+        {
+          "file": false,
+          "kind": "string",
+          "name": "description",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "language_code",
+          "required": false
+        }
+      ],
+      "projection": "none"
+    },
+    {
+      "family": "other",
+      "name": "setMyShortDescription",
+      "params": [
+        {
+          "file": false,
+          "kind": "string",
+          "name": "short_description",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "string",
+          "name": "language_code",
+          "required": false
+        }
+      ],
+      "projection": "none"
+    },
+    {
+      "family": "other",
+      "name": "setChatMenuButton",
+      "params": [
+        {
+          "file": false,
+          "kind": "string_or_integer",
+          "name": "chat_id",
+          "required": true
+        },
+        {
+          "file": false,
+          "kind": "object",
+          "name": "menu_button",
+          "required": false
+        }
+      ],
+      "projection": "none"
+    },
+    {
+      "family": "other",
+      "name": "setMyDefaultAdministratorRights",
+      "params": [
+        {
+          "file": false,
+          "kind": "object",
+          "name": "rights",
+          "required": false
+        },
+        {
+          "file": false,
+          "kind": "boolean",
+          "name": "for_channels",
+          "required": false
+        }
+      ],
+      "projection": "none"
+    }
+  ],
+  "non_bulk_methods": [
+    "close",
+    "logout",
+    "getupdates",
+    "setwebhook",
+    "deletewebhook",
+    "getwebhookinfo",
+    "getme",
+    "getfile",
+    "getchat",
+    "getchatadministrators",
+    "getchatmembercount",
+    "getchatmember",
+    "getuserprofilephotos",
+    "getstickerset",
+    "getcustomemojistickers",
+    "getforumtopiciconstickers",
+    "getmycommands",
+    "getmyname",
+    "getmydescription",
+    "getmyshortdescription",
+    "getchatmenubutton",
+    "getmydefaultadministratorrights",
+    "getstartransactions",
+    "getavailablegifts",
+    "getbusinessconnection",
+    "getgamehighscores",
+    "getuserchatboosts"
+  ]
+}

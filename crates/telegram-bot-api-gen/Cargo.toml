@@ -1,0 +1,10 @@
+[package]
+name = "telegram-bot-api-gen"
+version = "0.1.0"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+
+[dependencies]
+serde_json.workspace = true
+telegram-api-meta = { path = "../telegram-api-meta" }
