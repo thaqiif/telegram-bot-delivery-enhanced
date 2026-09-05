@@ -3,61 +3,79 @@ name: release
 on:
   push:
     tags: ["v*"]
+  # Allow manual re-runs from the Actions tab.
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
   build-and-release:
-    # Self-hosted Linux runner. Build on a Debian 13 machine so the binary's
-    # glibc matches the deployment target (the artifact is glibc-linked, not
-    # static). Arch is detected at build time and encoded in the artifact name,
-    # so an aarch64 runner produces linux-aarch64 and x86_64 produces
-    # linux-x86_64.
-    runs-on: [self-hosted, linux]
+    # One standard GitHub-hosted Ubuntu runner builds BOTH architectures: the
+    # host x86_64 natively and arm64 by cross-compiling (reqwest uses rustls and
+    # rusqlite is bundled, so only a target C compiler is needed). The cross-built
+    # binaries link against this runner's glibc (Ubuntu 24.04, 2.39), which runs
+    # on the Debian 13 deployment target (glibc 2.41) — glibc is backward
+    # compatible. No self-hosted runner required.
+    runs-on: ubuntu-24.04
     steps:
-      - name: Install Rust if missing
-        run: |
-          if ! command -v cargo >/dev/null 2>&1; then
-            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --profile minimal
-          fi
-          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
-
       - uses: actions/checkout@v4
 
-      - name: Build (release, locked)
-        env:
-          # Keep the host responsive on small runners; matches the project's
-          # low-memory development constraint.
-          CARGO_BUILD_JOBS: "2"
-        run: |
-          cargo build --release --locked --bin telegram-bulk-delivery
+      - name: Install Rust (stable + aarch64 target)
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-unknown-linux-gnu
 
-      - name: Test (capped)
+      - name: Install aarch64 C cross-compiler
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq gcc-aarch64-linux-gnu
+
+      - name: Build x86_64 (host)
         env:
           CARGO_BUILD_JOBS: "2"
-        run: |
-          cargo test --workspace --locked -- --test-threads=1
+        run: cargo build --release --locked --bin telegram-bulk-delivery
 
-      - name: Package artifact
+      - name: Build aarch64 (cross)
+        env:
+          CARGO_BUILD_JOBS: "2"
+          CC_aarch64_unknown_linux_gnu: aarch64-linux-gnu-gcc
+          AR_aarch64_unknown_linux_gnu: aarch64-linux-gnu-ar
+        run: cargo build --release --locked --target aarch64-unknown-linux-gnu --bin telegram-bulk-delivery
+
+      - name: Test (capped, host)
+        env:
+          CARGO_BUILD_JOBS: "2"
+        run: cargo test --workspace --locked -- --test-threads=1
+
+      - name: Package artifacts
         run: |
-          ARCH="$(uname -m)"
+          set -euo pipefail
           VERSION="${GITHUB_REF_NAME#v}"
-          DIR="telegram-bulk-delivery-${VERSION}-linux-${ARCH}"
-          mkdir -p "${DIR}"
-          cp target/release/telegram-bulk-delivery "${DIR}/"
-          cp config/operator.defaults.toml "${DIR}/operator.example.toml"
-          cp deploy/telegram-bulk-delivery.service "${DIR}/"
-          cp deploy/install.sh "${DIR}/"
-          chmod +x "${DIR}/install.sh"
-          tar -czf "${DIR}.tar.gz" "${DIR}"
-          sha256sum "${DIR}.tar.gz" > "${DIR}.tar.gz.sha256"
-          echo "ARTIFACT=${DIR}.tar.gz" >> "$GITHUB_ENV"
+          X86="telegram-bulk-delivery-${VERSION}-linux-x86_64"
+          ARM="telegram-bulk-delivery-${VERSION}-linux-aarch64"
+          mkdir -p "${X86}" "${ARM}"
+          cp target/release/telegram-bulk-delivery "${X86}/telegram-bulk-delivery"
+          cp target/aarch64-unknown-linux-gnu/release/telegram-bulk-delivery "${ARM}/telegram-bulk-delivery"
+          for DIR in "${X86}" "${ARM}"; do
+            cp config/operator.defaults.toml "${DIR}/operator.example.toml"
+            cp deploy/telegram-bulk-delivery.service "${DIR}/"
+            cp deploy/install.sh "${DIR}/"
+            chmod +x "${DIR}/install.sh"
+            tar -czf "${DIR}.tar.gz" "${DIR}"
+            sha256sum "${DIR}.tar.gz" > "${DIR}.tar.gz.sha256"
+            file "${DIR}/telegram-bulk-delivery" | sed 's/^/  /'
+            echo "  packaged ${DIR}.tar.gz ($(stat -c%s "${DIR}.tar.gz") bytes)"
+          done
+          echo "ARTIFACT_X86=${X86}.tar.gz"      >> "$GITHUB_ENV"
+          echo "ARTIFACT_ARM=${ARM}.tar.gz"      >> "$GITHUB_ENV"
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           generate_release_notes: true
           files: |
-            ${{ env.ARTIFACT }}
-            ${{ env.ARTIFACT }}.sha256
+            ${{ env.ARTIFACT_X86 }}
+            ${{ env.ARTIFACT_X86 }}.sha256
+            ${{ env.ARTIFACT_ARM }}
+            ${{ env.ARTIFACT_ARM }}.sha256
