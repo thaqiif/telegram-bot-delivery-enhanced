@@ -43,8 +43,10 @@ jobs:
       - name: Build aarch64 (cross)
         env:
           CARGO_BUILD_JOBS: "2"
-          CC_aarch64_unknown_linux_gnu: aarch64-linux-gnu-gcc
+          CC_aarch64_unknown_linux_gnu: aarch64-linux-gnu-gcc      # steers the cc crate (sqlite/ring C)
           AR_aarch64_unknown_linux_gnu: aarch64-linux-gnu-ar
+          # Make rustc link the final binary with the cross linker, not the host /usr/bin/ld.
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
         run: cargo build --release --locked --target aarch64-unknown-linux-gnu --bin telegram-bulk-delivery
 
       - name: Test (capped, host)
