@@ -37,6 +37,10 @@ pub struct OperatorConfig {
     pub retention_sweep_secs: u64,
     /// Maximum terminal jobs deleted per `RetentionTick`.
     pub retention_batch: u32,
+    /// SSRF default-safe switch. When false, a per-bot `telegram_api_base` that
+    /// targets a non-public (loopback/private/link-local/metadata) host is
+    /// refused. Set true to allow pointing bots at a private/local bot server.
+    pub allow_private_targets: bool,
 }
 
 #[derive(Debug, Error)]

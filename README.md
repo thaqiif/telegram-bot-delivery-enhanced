@@ -38,7 +38,7 @@ curl -s http://127.0.0.1:8080/readyz   # -> ready
 |------|---------|
 | `/usr/local/bin/telegram-bulk-delivery` | the binary |
 | `/etc/telegram-bulk-delivery/config.toml` | operator config |
-| `/etc/telegram-bulk-delivery/env` | `BULK_MASTER_KEY` (+ optional `TELEGRAM_API_BASE`) |
+| `/etc/telegram-bulk-delivery/env` | `BULK_MASTER_KEY` (+ optional `TELEGRAM_API_BASE`, `BULK_API_KEY`) |
 | `/etc/telegram-bulk-delivery/master.key` | **back this up** — encrypts bot tokens at rest; losing it makes all stored tokens unrecoverable |
 | `/var/lib/telegram-bulk-delivery/` | SQLite DB + multipart file blobs |
 | `systemd` unit `telegram-bulk-delivery.service` | hardened service, enabled at boot, auto-restart |
@@ -167,6 +167,8 @@ rejected and stored as absent (the bot then uses the global base):
   expects, so a test-environment token works with **no local rewrite proxy**:
   point the bot at `https://api.telegram.org/bot{token}/test`.
 
+The base is validated by a default-safe SSRF gate **at set time**: unless the operator enables `allow_private_targets`, a base whose host is a private/loopback/link-local/metadata address (or that fails to resolve publicly) is rejected with 400 instead of being stored. Production configs leave `allow_private_targets` false.
+
 Snapshot semantics: `telegram_api_base` is snapshotted per job — changing it
 applies only to jobs submitted after the change. Already-queued recipients keep
 the old base until they are re-submitted. An absent/empty/NULL base falls back
@@ -262,8 +264,11 @@ On small (1 CPU / 1 GiB) machines cap the build: `CARGO_BUILD_JOBS=1 cargo build
 | `free_disk_reserve_bytes` | 1 GiB | submits are refused below this |
 | `wal_truncate_bytes` | 64 MiB | forced WAL truncate threshold |
 | `retention_sweep_secs` / `retention_batch` | 30 / 500 | terminal-job GC cadence |
+| `allow_private_targets` | `false` | when true, a per-bot API base may point at a private/loopback host (local/testing bot servers); leave false in production |
 
 `BULK_MASTER_KEY` (env, required) is base64 of exactly 32 bytes; it derives per-bot AEAD keys that encrypt tokens at rest. Rotate by re-registering bots.
+
+`BULK_API_KEY` (env, optional) is a shared key that, when set, gates **every** `/bot<TOKEN>/...` endpoint: a caller must present `Authorization: Bearer <key>` or `X-TGBulk-Key: <key>`. `/healthz`, `/readyz`, and `/metrics` stay unauthenticated. Base64-encode the key used at the proxy, e.g. `export BULK_API_KEY="$(openssl rand -base64 32)"`.
 
 ## Security & operations notes
 

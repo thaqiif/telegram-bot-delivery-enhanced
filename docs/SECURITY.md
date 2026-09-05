@@ -55,7 +55,9 @@ Outbound webhook policy:
 - Disable all redirects (`Policy::none`), including HTTPS-to-HTTPS redirects.
 - Re-validate on every delivery attempt so DNS changes cannot inherit prior trust.
 
-Never add an “allow private IP” tenant option. If an operator explicitly needs internal callbacks, isolate that deployment and provide a narrow operator-owned allowlist rather than tenant-controlled SSRF bypass.
+Never add a **tenant-controlled** “allow private IP” option for the webhook/callback path. If an operator explicitly needs internal callbacks, isolate that deployment and provide a narrow **operator-owned** allowlist rather than tenant-controlled SSRF bypass.
+
+The per-bot API-base path is the one deliberate exception, and it is **not** tenant-controlled: it is a site-wide, **operator-owned** switch, `allow_private_targets` (operator config, default `false`). When false (the default, fail-closed) the per-bot `telegram_api_base` is validated by a default-safe SSRF gate at set/submit time: any base whose host is a private/loopback/link-local/metadata address — or that fails to resolve to a public address — is rejected with 400 and never stored. Operators who point bots at a private/local Telegram bot server (e.g. a local mock for testing) opt in by setting `allow_private_targets = true`, which relaxes the gate for the API base only. It does **not** relax the webhook callback policy above, which keeps its strict resolution and deny-list checks unconditionally.
 
 ## Per-bot API base / config-claim
 

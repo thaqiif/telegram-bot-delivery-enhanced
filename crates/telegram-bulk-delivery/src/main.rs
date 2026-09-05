@@ -199,9 +199,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     sweep_orphan_files(&store, &data_root);
     let telegram_base =
         env::var("TELEGRAM_API_BASE").unwrap_or_else(|_| "https://api.telegram.org".into());
+    // Optional operator API key: when set, every bot endpoint requires it. The
+    // dispatch client never follows redirects (SSRF hardening, matching the
+    // webhook deliverer) — a redirect could otherwise send a token-bearing
+    // request to an attacker-chosen host.
+    let api_key: Option<Arc<str>> = env::var("BULK_API_KEY").ok().map(Arc::from);
     let client = reqwest::Client::builder()
         .connect_timeout(Duration::from_secs(10))
         .pool_max_idle_per_host(4)
+        .redirect(reqwest::redirect::Policy::none())
         .build()?;
     let readiness = Arc::new(Readiness::ready());
     let app = router(HealthState {
@@ -229,6 +235,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         free_disk_reserve_bytes: config.free_disk_reserve_bytes,
         storage_high_watermark_bytes: config.storage_high_watermark_bytes,
         nonterminal_cap: u32::try_from(config.global_nonterminal_recipients).unwrap_or(u32::MAX),
+        api_key,
+        allow_private_targets: config.allow_private_targets,
     }));
     let runtime = tokio::runtime::Builder::new_multi_thread()
         .worker_threads(2)

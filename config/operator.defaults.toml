@@ -18,3 +18,5 @@ storage_high_watermark_bytes = 21474836480
 wal_truncate_bytes = 67108864
 retention_sweep_secs = 30
 retention_batch = 500
+# SSRF default-safe: leave false unless you point bots at a private/local bot server.
+allow_private_targets = false

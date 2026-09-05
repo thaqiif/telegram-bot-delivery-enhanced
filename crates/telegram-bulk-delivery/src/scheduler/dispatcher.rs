@@ -54,6 +54,7 @@ pub fn snapshot_policy_and_base(item: &DispatchItem) -> (AttemptPolicy, Option<S
         .and_then(serde_json::Value::as_str)
         .map(str::trim)
         .filter(|s| !s.is_empty())
+        .filter(|s| s.starts_with("http://") || s.starts_with("https://"))
         .map(str::to_owned);
     (policy, per_bot_base)
 }

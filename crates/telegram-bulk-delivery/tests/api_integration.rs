@@ -26,6 +26,10 @@ struct Fixture {
     calls: Arc<Mutex<HashMap<String, usize>>>,
 }
 async fn fixture() -> Fixture {
+    fixture_opts(None, true).await
+}
+
+async fn fixture_opts(api_key: Option<&str>, allow_private_targets: bool) -> Fixture {
     let temp = tempfile::tempdir().unwrap();
     let store = Arc::new(Store::open(temp.path().join("queue.db"), 128, 64).unwrap());
     let calls = Arc::new(Mutex::new(HashMap::new()));
@@ -74,6 +78,8 @@ async fn fixture() -> Fixture {
         free_disk_reserve_bytes: 0,
         storage_high_watermark_bytes: u64::MAX,
         nonterminal_cap: 1_000_000,
+        api_key: api_key.map(Arc::from),
+        allow_private_targets,
     };
     Fixture {
         app: api_router(state),
@@ -89,9 +95,72 @@ async fn call(
     content_type: Option<&str>,
     body: impl Into<axum::body::Body>,
 ) -> (u16, Value) {
+    call_headers(app, method, uri, content_type, body, &[]).await
+}
+async fn call_auth(
+    app: &Router,
+    method: &str,
+    uri: &str,
+    content_type: Option<&str>,
+    key: &str,
+) -> (u16, Value) {
+    call_headers(
+        app,
+        method,
+        uri,
+        content_type,
+        String::new(),
+        &[("authorization", &format!("Bearer {key}"))],
+    )
+    .await
+}
+async fn call_xkey(
+    app: &Router,
+    method: &str,
+    uri: &str,
+    content_type: Option<&str>,
+    key: &str,
+) -> (u16, Value) {
+    call_headers(
+        app,
+        method,
+        uri,
+        content_type,
+        String::new(),
+        &[("x-tgbulk-key", key)],
+    )
+    .await
+}
+/// Issue a request and return only its status (no body parsing) — for endpoints
+/// whose body is not JSON (e.g. /metrics returns Prometheus text).
+async fn status_of(app: &Router, method: &str, uri: &str) -> u16 {
+    let response = app
+        .clone()
+        .oneshot(
+            axum::http::Request::builder()
+                .method(method)
+                .uri(uri)
+                .body(axum::body::Body::empty())
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    response.status().as_u16()
+}
+async fn call_headers(
+    app: &Router,
+    method: &str,
+    uri: &str,
+    content_type: Option<&str>,
+    body: impl Into<axum::body::Body>,
+    headers: &[(&str, &str)],
+) -> (u16, Value) {
     let mut b = axum::http::Request::builder().method(method).uri(uri);
     if let Some(c) = content_type {
         b = b.header("content-type", c)
+    }
+    for (k, v) in headers {
+        b = b.header(*k, *v)
     }
     let response = app
         .clone()
@@ -339,6 +408,59 @@ async fn claim_non_http_base_still_needs_getme() {
     assert_eq!(status, 401);
     assert_eq!(f.calls.lock().unwrap()["bad"], 1);
     assert!(f.store.readers.bot(bot_id_for("bad")).unwrap().is_none());
+}
+#[tokio::test]
+async fn api_key_required_on_bot_endpoints_when_configured() {
+    let f = fixture_opts(Some("sekret"), true).await;
+    // No key -> 401 on a bot endpoint.
+    let (status, _) = call(&f.app, "GET", "/botone/getBulkDeliveryConfig", None, "").await;
+    assert_eq!(status, 401);
+    // Bad key -> 401.
+    let (status, _) = call(
+        &f.app,
+        "GET",
+        "/botone/getBulkDeliveryConfig",
+        Some("application/json"),
+        "{\"x\":1}",
+    )
+    .await;
+    assert_eq!(status, 401);
+    // Authorization: Bearer works.
+    let (status, _) = call_auth(&f.app, "GET", "/botone/getBulkDeliveryConfig", None, "sekret").await;
+    assert_eq!(status, 200);
+    // X-TGBulk-Key also works.
+    let (status, _) = call_xkey(&f.app, "GET", "/botone/getBulkDeliveryConfig", None, "sekret").await;
+    assert_eq!(status, 200);
+    // /metrics is exempt from the API-key gate (body is Prometheus text, not JSON).
+    assert_eq!(status_of(&f.app, "GET", "/metrics").await, 200);
+}
+#[tokio::test]
+async fn ssrf_default_safe_denies_private_target_base() {
+    // allow_private_targets=false (default-safe): a loopback base is refused.
+    let f = fixture_opts(None, false).await;
+    let (status, body) = call(
+        &f.app,
+        "POST",
+        "/botone/setBulkDeliveryConfig",
+        Some("application/json"),
+        r#"{"telegram_api_base":"http://127.0.0.1:9123"}"#,
+    )
+    .await;
+    assert_eq!(status, 400, "{body}");
+    assert_eq!(body["error_code"], 400);
+
+    // Same request with the private-target toggle enabled is accepted.
+    let g = fixture_opts(None, true).await;
+    let (status, body) = call(
+        &g.app,
+        "POST",
+        "/botone/setBulkDeliveryConfig",
+        Some("application/json"),
+        r#"{"telegram_api_base":"http://127.0.0.1:9124"}"#,
+    )
+    .await;
+    assert_eq!(status, 200, "{body}");
+    assert_eq!(body["result"]["telegram_api_base"], "http://127.0.0.1:9124");
 }
 #[tokio::test]
 async fn authenticated_claimed_bot_skips_getme() {

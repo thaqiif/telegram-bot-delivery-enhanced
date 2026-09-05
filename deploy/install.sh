@@ -84,6 +84,7 @@ storage_high_watermark_bytes = 5368709120
 wal_truncate_bytes = 67108864
 retention_sweep_secs = 30
 retention_batch = 500
+allow_private_targets = false
 EOF
     chown "${SERVICE_USER}:${SERVICE_USER}" "${CONFIG_DIR}/config.toml"
     echo ">> wrote ${CONFIG_DIR}/config.toml (listen 0.0.0.0:8080)"

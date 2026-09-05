@@ -26,6 +26,8 @@ pub enum StoreError {
     InvalidCommand(&'static str),
     #[error("operator ceiling exceeded: {0}")]
     CapacityExceeded(&'static str),
+    #[error("database schema version {version} is newer than this binary (supports up to {latest})")]
+    SchemaTooNew { version: i64, latest: i64 },
 }
 
 pub fn open_writer(path: &Path) -> Result<Connection, StoreError> {
@@ -122,6 +124,15 @@ pub fn migrate(conn: &mut Connection) -> Result<(), StoreError> {
     conn.execute_batch("BEGIN IMMEDIATE")?;
     let result = (|| {
         let version = current_version(conn)?;
+        // Fail fast rather than running an older binary against a newer DB:
+        // the writer's column-count insert would otherwise fail later with a
+        // confusing error on the first config write instead of at boot.
+        if version > LATEST_MIGRATION_VERSION {
+            return Err(StoreError::SchemaTooNew {
+                version,
+                latest: LATEST_MIGRATION_VERSION,
+            });
+        }
         if version == 0 {
             conn.execute_batch(MIGRATION)?;
             conn.execute(
@@ -150,7 +161,7 @@ pub fn migrate(conn: &mut Connection) -> Result<(), StoreError> {
                 [],
             )?;
         }
-        Ok::<_, rusqlite::Error>(())
+        Ok::<_, StoreError>(())
     })();
     match result {
         Ok(()) => match conn.execute_batch("COMMIT") {

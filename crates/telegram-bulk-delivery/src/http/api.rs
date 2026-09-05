@@ -17,6 +17,7 @@ use axum::{
 use http_body_util::BodyExt;
 use rand::{rngs::OsRng, RngCore};
 use serde::{Deserialize, Serialize};
+use url::Url;
 use serde_json::{json, Map, Value};
 use sha2::Digest;
 use std::{
@@ -55,6 +56,14 @@ pub struct ApiState {
     /// Global ceiling on non-terminal recipients, enforced atomically at
     /// `PromoteJob` (`global_nonterminal_recipients`).
     pub nonterminal_cap: u32,
+    /// Optional operator API key. When set, every request to a bot endpoint
+    /// must carry `Authorization: Bearer <key>` (or `X-TGBulk-Key: <key>`);
+    /// `/metrics` is exempt. `None` disables enforcement (backward compatible).
+    pub api_key: Option<Arc<str>>,
+    /// When false (default-safe), a per-bot `telegram_api_base` that targets a
+    /// non-public (loopback/private/link-local/metadata) host is refused at set
+    /// time. Operators pointing at a private/local bot server set this true.
+    pub allow_private_targets: bool,
 }
 #[derive(Debug, Serialize)]
 struct ErrorBody {
@@ -129,7 +138,70 @@ pub fn router(state: ApiState) -> Router {
             state.clone(),
             http_concurrency_guard,
         ))
+        .route_layer(middleware::from_fn_with_state(state.clone(), api_key_guard))
         .with_state(state)
+}
+
+/// Optional operator API-key gate: when `ApiState.api_key` is configured, every
+/// bot endpoint requires `Authorization: Bearer <key>` (or `X-TGBulk-Key: <key>`).
+/// `/metrics` stays reachable (aggregate, operator-sourced), matching the
+/// concurrency guard's exemption. When no key is configured this is a no-op.
+async fn api_key_guard(State(s): State<ApiState>, request: Request, next: Next) -> Response {
+    if request.uri().path() == "/metrics" {
+        return next.run(request).await;
+    }
+    let Some(configured) = s.api_key.as_deref() else {
+        return next.run(request).await;
+    };
+    let presented = request
+        .headers()
+        .get(header::AUTHORIZATION)
+        .and_then(|v| v.to_str().ok())
+        .and_then(|v| v.strip_prefix("Bearer "))
+        .map(str::to_owned)
+        .or_else(|| {
+            request
+                .headers()
+                .get("x-tgbulk-key")
+                .and_then(|v| v.to_str().ok())
+                .map(str::to_owned)
+        });
+    if presented.as_deref() == Some(configured) {
+        next.run(request).await
+    } else {
+        error(StatusCode::UNAUTHORIZED, "missing or invalid API key")
+    }
+}
+
+/// Default-safe SSRF gate for a per-bot base. Returns true when the base is
+/// acceptable to persist/use: a parseable http(s) URL; with `allow_private`
+/// any host is accepted (operator opted into private/local targets); otherwise
+/// the host must not be a denied name/IP literal and every address it resolves
+/// to must be public (fail closed on resolution failure).
+async fn base_target_allowed(allow_private: bool, base: &str) -> bool {
+    let Ok(u) = Url::parse(base) else {
+        return false;
+    };
+    if !matches!(u.scheme(), "http" | "https") {
+        return false;
+    }
+    if allow_private {
+        return true;
+    }
+    let Some(host) = u.host_str() else {
+        return false;
+    };
+    if crate::webhook::denied_name(host) {
+        return false;
+    }
+    let port = u.port().unwrap_or(if u.scheme() == "https" { 443 } else { 80 });
+    // Resolve into an owned host so the resulting iterator does not borrow the
+    // `Url` past this scope (which would otherwise outlive its temporary).
+    let host = host.to_owned();
+    match tokio::net::lookup_host((host, port)).await {
+        Ok(mut addrs) => addrs.all(|a| !crate::webhook::is_denied_ip(a.ip())),
+        Err(_) => false,
+    }
 }
 
 /// `max_concurrent_http` ceiling: reject with 503 (overloaded) once the
@@ -331,7 +403,9 @@ fn clamp(mut v: Value) -> Value {
                 .and_then(Value::as_str)
                 .map(str::trim)
                 .unwrap_or("");
-            let keep = trimmed.starts_with("http://") || trimmed.starts_with("https://");
+            let keep = Url::parse(trimmed)
+                .map(|u| matches!(u.scheme(), "http" | "https") && u.host_str().is_some())
+                .unwrap_or(false);
             if keep {
                 o.insert("telegram_api_base".into(), json!(trimmed));
             } else {
@@ -366,6 +440,16 @@ async fn finish_set_config(
         base.extend(p)
     }
     let mut config = clamp(base_config);
+    // SSRF default-safe: refuse to persist a per-bot base that targets a
+    // non-public host unless the operator opted into private targets.
+    if let Some(base) = config.get("telegram_api_base").and_then(Value::as_str) {
+        if !base_target_allowed(s.allow_private_targets, base).await {
+            return error(
+                StatusCode::BAD_REQUEST,
+                "telegram_api_base targets a non-public host; private targets require allow_private_targets=true",
+            );
+        }
+    }
     let mut secret = None;
     let mut encrypted_secret = None;
     if config
@@ -407,6 +491,12 @@ async fn set_config(
     Path(token): Path<String>,
     req: Request,
 ) -> Response {
+    // Operator storage ceilings: the claim path creates a bots + bot_configs
+    // row, so refuse writes when the disk is already at reserve/watermark,
+    // mirroring `submit`. Prevents unbounded row growth from filling the disk.
+    if !storage_admission(&s) {
+        return overloaded();
+    }
     // 1) Derive BotId first (cheap, no I/O, no network).
     let id = s.keys.bot_id(token.as_bytes());
 
