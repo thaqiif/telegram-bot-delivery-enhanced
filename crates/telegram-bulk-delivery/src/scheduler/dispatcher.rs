@@ -1,6 +1,6 @@
 use crate::{
     domain::{AmbiguityPolicy, BotId},
-    store::{CompletionOutcome, Store, WriterCmd},
+    store::{CompletionOutcome, DispatchItem, Store, WriterCmd},
     telegram::classify::{classify, retries_ambiguous, Classification},
 };
 use serde_json::Value;
@@ -14,6 +14,122 @@ pub struct AttemptPolicy {
     pub retry_max_ms: u64,
     pub ambiguity: AmbiguityPolicy,
 }
+
+/// Parse a job's `policy_snapshot_json` **once** and return the retry policy
+/// together with the optional per-bot `telegram_api_base` extracted from the
+/// same snapshot.  The snapshot is the source of truth both for routing (which
+/// upstream to POST to) and for retry behaviour, so sharing the single parse
+/// keeps the two in lock-step and avoids a second `serde_json` allocation on
+/// the dispatch hot path.
+pub fn snapshot_policy_and_base(item: &DispatchItem) -> (AttemptPolicy, Option<String>) {
+    let config: serde_json::Value =
+        serde_json::from_str(&item.policy_snapshot_json).unwrap_or_else(|_| serde_json::json!({}));
+    let ambiguity = match config
+        .get("ambiguity_policy")
+        .and_then(serde_json::Value::as_str)
+    {
+        Some("at_most_once") => AmbiguityPolicy::AtMostOnce,
+        Some("method_aware") => AmbiguityPolicy::MethodAware,
+        _ => AmbiguityPolicy::AtLeastOnce,
+    };
+    let policy = AttemptPolicy {
+        retry_max: config
+            .get("retry_max_attempts")
+            .and_then(serde_json::Value::as_u64)
+            .and_then(|n| u16::try_from(n).ok())
+            .unwrap_or(8),
+        retry_consumed: item.retry_consumed,
+        retry_base_ms: config
+            .get("retry_base_ms")
+            .and_then(serde_json::Value::as_u64)
+            .unwrap_or(500),
+        retry_max_ms: config
+            .get("retry_max_ms")
+            .and_then(serde_json::Value::as_u64)
+            .unwrap_or(60_000),
+        ambiguity,
+    };
+    let per_bot_base = config
+        .get("telegram_api_base")
+        .and_then(serde_json::Value::as_str)
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .filter(|s| s.starts_with("http://") || s.starts_with("https://"))
+        .map(str::to_owned);
+    (policy, per_bot_base)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::http::resolve_api_url;
+    use crate::store::DispatchItem;
+
+    fn item(base: Option<&str>) -> DispatchItem {
+        let snap = match base {
+            Some(b) => serde_json::json!({ "telegram_api_base": b }),
+            None => serde_json::json!({}),
+        };
+        DispatchItem {
+            method: "sendMessage".into(),
+            shared_params_json: "{}".into(),
+            patch_json: "{}".into(),
+            chat_id: Some("1".into()),
+            chat_kind: Some("private".into()),
+            retry_consumed: 0,
+            policy_snapshot_json: snap.to_string(),
+            token_nonce: vec![0u8; 12],
+            token_ciphertext: vec![1u8; 16],
+            token_kid: "test".into(),
+            files: vec![],
+        }
+    }
+
+    // I-6: dispatch routing derives the per-bot URL from the job snapshot only.
+    #[test]
+    fn snapshot_routes_per_bot_and_global_distinctly() {
+        let token = "t0ken";
+        let global = "https://api.telegram.org";
+
+        // Bot A: carries a per-bot base in its snapshot.
+        let (_, per_bot_a) = snapshot_policy_and_base(&item(Some("http://127.0.0.1:9123")));
+        assert_eq!(
+            resolve_api_url(global, per_bot_a.as_deref(), token, "sendMessage"),
+            "http://127.0.0.1:9123/bott0ken/sendMessage"
+        );
+
+        // Bot A with a {token} template layout.
+        let (_, per_bot_t) =
+            snapshot_policy_and_base(&item(Some("http://127.0.0.1:9123/bot{token}/test")));
+        assert_eq!(
+            resolve_api_url(global, per_bot_t.as_deref(), token, "sendMessage"),
+            "http://127.0.0.1:9123/bott0ken/test/sendMessage"
+        );
+
+        // Bot B: snapshot has no base → None → resolves against the global host.
+        let (_, per_bot_b) = snapshot_policy_and_base(&item(None));
+        assert!(
+            per_bot_b.is_none(),
+            "absent base must be None, not a string"
+        );
+        assert_eq!(
+            resolve_api_url(global, per_bot_b.as_deref(), token, "sendMessage"),
+            "https://api.telegram.org/bott0ken/sendMessage"
+        );
+
+        // An empty-string base is clamped/normalized to None (global fallback).
+        let (_, per_bot_empty) = snapshot_policy_and_base(&item(Some("   ")));
+        assert!(
+            per_bot_empty.is_none(),
+            "whitespace-only base falls back to None"
+        );
+        assert_eq!(
+            resolve_api_url(global, per_bot_empty.as_deref(), token, "sendMessage"),
+            "https://api.telegram.org/bott0ken/sendMessage"
+        );
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct LeasedCall {
     pub job_id: String,

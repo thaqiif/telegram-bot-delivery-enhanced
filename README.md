@@ -10,6 +10,44 @@ One binary. One config file. One env var. SQLite and TLS roots are compiled in �
 
 The release artifact is a glibc-linked binary built for your architecture. It needs nothing but base Debian 13 (no `libsqlite3`, no `ca-certificates`, no OpenSSL).
 
+### Quickstart (simplest path)
+
+On a Debian 13 server (x86_64 or arm64), ~1 minute:
+
+```sh
+gh release download -R thaqiif/telegram-bot-delivery-enhanced \
+  -p "telegram-bulk-delivery-*-linux-$(uname -m).tar.gz" -O /tmp/tgbulk.tar.gz
+tar -xzf /tmp/tgbulk.tar.gz && cd telegram-bulk-delivery-*-linux-*/
+sudo ./install.sh && sudo systemctl start telegram-bulk-delivery
+curl -s http://127.0.0.1:8080/healthz   # -> ok   (localhost OK once install.sh runs)
+```
+
+`install.sh` is idempotent and does everything — installs the binary, creates a
+dedicated `tgbulk` user, generates the master key, writes config + env, and
+installs a hardened systemd unit (enabled at boot, auto-restart).
+
+**Only two settings to set up** (edit `/etc/telegram-bulk-delivery/env`, then `sudo systemctl restart telegram-bulk-delivery`):
+
+```ini
+BULK_MASTER_KEY=<install.sh already filled this in — back it up>
+BULK_API_KEY=your-long-random-key   # OPTIONAL but recommended: gates every /bot endpoint
+```
+
+Optional toggle in `/etc/telegram-bulk-delivery/config.toml` (defaults are already safe):
+`allow_private_targets = false` — leave it `false` unless a per-bot `telegram_api_base`
+must point at a **private/local** bot server (e.g. a local mock for testing).
+
+That's it. A call once the service is up (note the `BULK_API_KEY` header):
+
+```sh
+curl -s -X POST "http://127.0.0.1:8080/bot<TOKEN>/sendMessage" \
+  -H "Authorization: Bearer <BULK_API_KEY>" -H 'Content-Type: application/json' \
+  -d '{"parameters":{"text":"hi"},"recipients":[{"chat_id":123456}]}'
+```
+
+For a **public** deployment also put a TLS reverse proxy in front (see §3 below) —
+bot tokens travel in the URL path.
+
 ### 1. Get a release
 
 The repo is private, so download with the GitHub CLI (`gh auth login` once):
@@ -38,7 +76,7 @@ curl -s http://127.0.0.1:8080/readyz   # -> ready
 |------|---------|
 | `/usr/local/bin/telegram-bulk-delivery` | the binary |
 | `/etc/telegram-bulk-delivery/config.toml` | operator config |
-| `/etc/telegram-bulk-delivery/env` | `BULK_MASTER_KEY` (+ optional `TELEGRAM_API_BASE`) |
+| `/etc/telegram-bulk-delivery/env` | `BULK_MASTER_KEY` (+ optional `TELEGRAM_API_BASE`, `BULK_API_KEY`) |
 | `/etc/telegram-bulk-delivery/master.key` | **back this up** — encrypts bot tokens at rest; losing it makes all stored tokens unrecoverable |
 | `/var/lib/telegram-bulk-delivery/` | SQLite DB + multipart file blobs |
 | `systemd` unit `telegram-bulk-delivery.service` | hardened service, enabled at boot, auto-restart |
@@ -47,7 +85,7 @@ Logs: `journalctl -u telegram-bulk-delivery -f`
 
 ### 3. Expose it
 
-The service binds `127.0.0.1:8080` by default. Put a TLS proxy in front for public exposure:
+The service binds `0.0.0.0:8080` by default. Put a TLS proxy in front for public exposure:
 
 ```nginx
 # /etc/nginx/sites-available/tgbulk
@@ -143,16 +181,68 @@ curl -s -X POST "http://127.0.0.1:8080/bot${TOKEN}/setBulkDeliveryConfig" \
 curl -s "http://127.0.0.1:8080/bot${TOKEN}/getBulkDeliveryConfig"
 curl -s -X POST "http://127.0.0.1:8080/bot${TOKEN}/resetBulkDeliveryConfig"
 ```
+### Per-bot API base (Telegram test env / local bot servers)
+
+A bot can override the upstream endpoint instead of using the process default
+(`TELEGRAM_API_BASE`, by default `https://api.telegram.org`). Set
+`telegram_api_base` in its config:
+
+```sh
+curl -s -X POST "http://127.0.0.1:8080/bot${TOKEN}/setBulkDeliveryConfig" \
+  -H 'Content-Type: application/json' \
+  -d '{"telegram_api_base":"http://127.0.0.1:9123"}'
+```
+
+Two layouts are supported by the URL builder; both accept any `http://` or
+`https://` host (plain prefix or a `{token}` template). Non-`http(s)` values are
+rejected and stored as absent (the bot then uses the global base):
+
+* **Plain prefix** — `http://127.0.0.1:9123` resolves to
+  `http://127.0.0.1:9123/bot<TOKEN>/<method>`.
+* **Template** — `https://api.telegram.org/bot{token}/test` resolves to
+  `https://api.telegram.org/bot<TOKEN>/test/<method>` (every `{token}`
+  occurrence is substituted). This is the shape Telegram's test environment
+  expects, so a test-environment token works with **no local rewrite proxy**:
+  point the bot at `https://api.telegram.org/bot{token}/test`.
+
+The base is validated by a default-safe SSRF gate **at set time**: unless the operator enables `allow_private_targets`, a base whose host is a private/loopback/link-local/metadata address (or that fails to resolve publicly) is rejected with 400 instead of being stored. Production configs leave `allow_private_targets` false.
+
+Snapshot semantics: `telegram_api_base` is snapshotted per job — changing it
+applies only to jobs submitted after the change. Already-queued recipients keep
+the old base until they are re-submitted. An absent/empty/NULL base falls back
+to the global host; a *set but unreachable* base is not silently replaced
+(it fails through the normal retry path).
+
+> A brand-new token claimed with an `http(s)://` `telegram_api_base` registers
+> without a `getMe` round-trip (see [`docs/SECURITY.md`](docs/SECURITY.md) for
+> the token-only trust boundary). For a token without a base, the service still
+> performs a `getMe` against the configured base to authenticate the token.
 
 ### Endpoints
 
 - `GET /healthz` — process liveness
 - `GET /readyz` — durable-acceptance readiness
-- `GET /metrics` — Prometheus exposition (bind locally or protect at the proxy)
+- `GET /metrics` — Prometheus exposition; bound aggregate labels only, but protect at the proxy (operationally sensitive)
 - `POST /bot<TOKEN>/<method>` — submit one bulk job (any committed outbound method; multipart for media)
 - `GET /bot<TOKEN>/bulk/jobs/<JOB_ID>` — status/progress/ETA
 - `GET /bot<TOKEN>/bulk/jobs/<JOB_ID>/results` — stable paginated results
 - `GET|POST /bot<TOKEN>/{get,set,reset}BulkDeliveryConfig` — per-bot policy
+
+### Smoke test
+
+`scripts/smoke.sh` exercises a live deployment end-to-end: the API-key gate
+(no key 401 / Bearer + `X-TGBulk-Key` 200 / bad key 401, with `/healthz`
+`/readyz` `/metrics` open), a public per-bot base claim, the default-safe SSRF
+gate (a loopback base is rejected with 400), then a real bulk submit, poll to
+completion, and result read:
+
+```sh
+BASE=http://HOST:8080 TOKEN=<bot-token> API_KEY=<key> \
+  ./scripts/smoke.sh -c -1008001228039 -c -1008003100137
+```
+
+Add `--no-send` to run only the gate/SSRF checks, or `-b <base>` to override
+the per-bot API base.
 
 ---
 
@@ -221,15 +311,18 @@ On small (1 CPU / 1 GiB) machines cap the build: `CARGO_BUILD_JOBS=1 cargo build
 | Key | Default | Meaning |
 |-----|---------|---------|
 | `database_path` | `data/…db` | SQLite database (keep on local persistent disk) |
-| `bind` | `127.0.0.1:8080` | HTTP listen address |
+| `bind` | `0.0.0.0:8080` | HTTP listen address |
 | `max_recipients_per_job` | `100000` | hard per-job ceiling |
 | `global_nonterminal_recipients` | `500000` | global in-flight ceiling across all jobs |
 | `request_body_bytes` / `multipart_body_bytes` | 32 MiB / 64 MiB | submit body caps |
 | `free_disk_reserve_bytes` | 1 GiB | submits are refused below this |
 | `wal_truncate_bytes` | 64 MiB | forced WAL truncate threshold |
 | `retention_sweep_secs` / `retention_batch` | 30 / 500 | terminal-job GC cadence |
+| `allow_private_targets` | `false` | when true, a per-bot API base may point at a private/loopback host (local/testing bot servers); leave false in production |
 
 `BULK_MASTER_KEY` (env, required) is base64 of exactly 32 bytes; it derives per-bot AEAD keys that encrypt tokens at rest. Rotate by re-registering bots.
+
+`BULK_API_KEY` (env, optional) is a shared key that, when set, gates **every** `/bot<TOKEN>/...` endpoint: a caller must present `Authorization: Bearer <key>` or `X-TGBulk-Key: <key>`. `/healthz`, `/readyz`, and `/metrics` stay unauthenticated. Base64-encode the key used at the proxy, e.g. `export BULK_API_KEY="$(openssl rand -base64 32)"`.
 
 ## Security & operations notes
 
@@ -237,3 +330,16 @@ On small (1 CPU / 1 GiB) machines cap the build: `CARGO_BUILD_JOBS=1 cargo build
 - Bot tokens are secrets: TLS at the proxy, never log token-bearing paths.
 - SQLite, the DB, and file blobs must stay on the same filesystem.
 - Bot API method metadata is committed in `crates/telegram-api-meta`; see [`docs/COMPATIBILITY.md`](docs/COMPATIBILITY.md) for the review/update workflow.
+
+---
+
+## Upgrade note: telegram_api_base migration
+
+This release adds the `telegram_api_base` column via migration `0004`. The
+`bot_configs` table is `STRICT` with an explicit 21-column `INSERT`; the prior
+release wrote a 20-value implicit-column insert, so **downgrade is backup-restore
+only** — restoring a pre-migration snapshot into the new release works, but
+rolling the new DB backward into the previous release's binary fails on the
+column count. Snapshot semantics: switching a bot's base affects only jobs
+submitted after the change (each job snapshots the config at accept time).
+

@@ -743,6 +743,8 @@ async fn metrics_expose_required_series_after_a_job() {
         free_disk_reserve_bytes: 0,
         storage_high_watermark_bytes: u64::MAX,
         nonterminal_cap: 1_000_000,
+        api_key: None,
+        allow_private_targets: true,
     };
     let app = api_router(state);
     let bad = app

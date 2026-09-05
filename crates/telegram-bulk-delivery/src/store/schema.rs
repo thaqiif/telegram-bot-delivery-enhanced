@@ -7,7 +7,8 @@ use crate::MIN_SQLITE_VERSION_NUMBER;
 pub const MIGRATION: &str = include_str!("migrations/0001_init.sql");
 pub const MIGRATION_0002: &str = include_str!("migrations/0002_webhook_pages.sql");
 pub const MIGRATION_0003: &str = include_str!("migrations/0003_lease_token.sql");
-pub const LATEST_MIGRATION_VERSION: i64 = 3;
+pub const MIGRATION_0004: &str = include_str!("migrations/0004_telegram_api_base.sql");
+pub const LATEST_MIGRATION_VERSION: i64 = 4;
 
 #[derive(Debug, Error)]
 pub enum StoreError {
@@ -25,6 +26,8 @@ pub enum StoreError {
     InvalidCommand(&'static str),
     #[error("operator ceiling exceeded: {0}")]
     CapacityExceeded(&'static str),
+    #[error("database schema version {version} is newer than this binary (supports up to {latest})")]
+    SchemaTooNew { version: i64, latest: i64 },
 }
 
 pub fn open_writer(path: &Path) -> Result<Connection, StoreError> {
@@ -121,6 +124,15 @@ pub fn migrate(conn: &mut Connection) -> Result<(), StoreError> {
     conn.execute_batch("BEGIN IMMEDIATE")?;
     let result = (|| {
         let version = current_version(conn)?;
+        // Fail fast rather than running an older binary against a newer DB:
+        // the writer's column-count insert would otherwise fail later with a
+        // confusing error on the first config write instead of at boot.
+        if version > LATEST_MIGRATION_VERSION {
+            return Err(StoreError::SchemaTooNew {
+                version,
+                latest: LATEST_MIGRATION_VERSION,
+            });
+        }
         if version == 0 {
             conn.execute_batch(MIGRATION)?;
             conn.execute(
@@ -142,7 +154,14 @@ pub fn migrate(conn: &mut Connection) -> Result<(), StoreError> {
                 [],
             )?;
         }
-        Ok::<_, rusqlite::Error>(())
+        if version < 4 {
+            conn.execute_batch(MIGRATION_0004)?;
+            conn.execute(
+                "INSERT INTO _migrations(version,name,applied_at_unix) VALUES(4,'telegram_api_base',unixepoch())",
+                [],
+            )?;
+        }
+        Ok::<_, StoreError>(())
     })();
     match result {
         Ok(()) => match conn.execute_batch("COMMIT") {
@@ -177,4 +196,105 @@ fn parse_version_number(version: &str) -> Option<i32> {
         .checked_mul(1_000_000)?
         .checked_add(minor.checked_mul(1_000)?)?
         .checked_add(patch)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use rusqlite::params;
+    use tempfile::tempdir;
+
+    #[test]
+    fn migration_v3_to_v4_adds_telegram_api_base_column() {
+        let tmp = tempdir().unwrap();
+        let conn = open_writer(&tmp.path().join("test.db")).unwrap();
+
+        // Construct a v3 DB: apply 0001-0003 with matching _migrations rows.
+        conn.execute_batch(MIGRATION).unwrap();
+        conn.execute(
+            "INSERT INTO _migrations(version,name,applied_at_unix) VALUES(1,'init',unixepoch())",
+            [],
+        )
+        .unwrap();
+        conn.execute_batch(MIGRATION_0002).unwrap();
+        conn.execute(
+            "INSERT INTO _migrations(version,name,applied_at_unix) VALUES(2,'webhook_pages',unixepoch())",
+            [],
+        ).unwrap();
+        conn.execute_batch(MIGRATION_0003).unwrap();
+        conn.execute(
+            "INSERT INTO _migrations(version,name,applied_at_unix) VALUES(3,'lease_token',unixepoch())",
+            [],
+        ).unwrap();
+
+        // Now we have a v3 DB. Seed a bots row (FK) + a 20-column bot_configs row.
+        let bot_id = [7u8; 32];
+        conn.execute(
+            "INSERT INTO bots (bot_id, token_nonce, token_ciphertext, token_kid, telegram_user_id, created_at_unix, last_seen_unix) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            params![&bot_id[..], &[1u8; 12], &[2u8; 32], "kid1", 12345i64, 1000i64, 1000i64],
+        ).unwrap();
+
+        conn.execute(
+            "INSERT INTO bot_configs (
+                bot_id, config_version, target_msgs_per_sec, retry_max_attempts,
+                retry_base_ms, retry_max_ms, retry_jitter, retryable_classes_json,
+                ambiguity_policy, job_deadline_secs, fairness_weight,
+                webhook_url, webhook_https_only,
+                webhook_secret_nonce, webhook_secret_ciphertext, webhook_secret_kid,
+                webhook_max_attempts, webhook_retry_base_ms, webhook_retry_max_ms,
+                updated_at_unix
+            ) VALUES (?1, 1, 20.0, 8, 500, 60000, 'full', '[]', 'at_least_once', 86400, 1, NULL, 1, NULL, NULL, NULL, 10, 1000, 300000, 2000)",
+            params![&bot_id[..]],
+        ).unwrap();
+
+        // Run the version-4 migration block (same as migrate() for version < 4).
+        conn.execute_batch(MIGRATION_0004).unwrap();
+        conn.execute(
+            "INSERT INTO _migrations(version,name,applied_at_unix) VALUES(4,'telegram_api_base',unixepoch())",
+            [],
+        ).unwrap();
+
+        // Verify the column exists.
+        let col_exists: bool = conn
+            .query_row(
+                "SELECT 1 FROM pragma_table_info('bot_configs') WHERE name='telegram_api_base'",
+                [],
+                |_| Ok(true),
+            )
+            .optional()
+            .unwrap()
+            .unwrap_or(false);
+        assert!(
+            col_exists,
+            "telegram_api_base column should exist after v4 migration"
+        );
+
+        // Pre-existing row reads NULL for the new column.
+        let api_base: Option<String> = conn
+            .query_row(
+                "SELECT telegram_api_base FROM bot_configs WHERE bot_id = ?1",
+                [&bot_id[..]],
+                |r| r.get(0),
+            )
+            .optional()
+            .unwrap()
+            .flatten();
+        assert!(
+            api_base.is_none(),
+            "pre-existing row should read NULL for telegram_api_base"
+        );
+
+        // _migrations records version 4.
+        let max_version: i64 = conn
+            .query_row("SELECT max(version) FROM _migrations", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(max_version, 4, "_migrations should record version 4");
+
+        // Also verify current_version() reads 4.
+        let cv = current_version(&conn).unwrap();
+        assert_eq!(
+            cv, 4,
+            "current_version() should return 4 after v4 migration"
+        );
+    }
 }
