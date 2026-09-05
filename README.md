@@ -190,6 +190,22 @@ to the global host; a *set but unreachable* base is not silently replaced
 - `GET /bot<TOKEN>/bulk/jobs/<JOB_ID>/results` — stable paginated results
 - `GET|POST /bot<TOKEN>/{get,set,reset}BulkDeliveryConfig` — per-bot policy
 
+### Smoke test
+
+`scripts/smoke.sh` exercises a live deployment end-to-end: the API-key gate
+(no key 401 / Bearer + `X-TGBulk-Key` 200 / bad key 401, with `/healthz`
+`/readyz` `/metrics` open), a public per-bot base claim, the default-safe SSRF
+gate (a loopback base is rejected with 400), then a real bulk submit, poll to
+completion, and result read:
+
+```sh
+BASE=http://HOST:8080 TOKEN=<bot-token> API_KEY=<key> \
+  ./scripts/smoke.sh -c -1008001228039 -c -1008003100137
+```
+
+Add `--no-send` to run only the gate/SSRF checks, or `-b <base>` to override
+the per-bot API base.
+
 ---
 
 ## Releases & CI (self-hosted runner)
