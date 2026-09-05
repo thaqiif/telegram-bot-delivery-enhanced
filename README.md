@@ -10,6 +10,44 @@ One binary. One config file. One env var. SQLite and TLS roots are compiled in �
 
 The release artifact is a glibc-linked binary built for your architecture. It needs nothing but base Debian 13 (no `libsqlite3`, no `ca-certificates`, no OpenSSL).
 
+### Quickstart (simplest path)
+
+On a Debian 13 server (x86_64 or arm64), ~1 minute:
+
+```sh
+gh release download -R thaqiif/telegram-bot-delivery-enhanced \
+  -p "telegram-bulk-delivery-*-linux-$(uname -m).tar.gz" -O /tmp/tgbulk.tar.gz
+tar -xzf /tmp/tgbulk.tar.gz && cd telegram-bulk-delivery-*-linux-*/
+sudo ./install.sh && sudo systemctl start telegram-bulk-delivery
+curl -s http://127.0.0.1:8080/healthz   # -> ok   (localhost OK once install.sh runs)
+```
+
+`install.sh` is idempotent and does everything — installs the binary, creates a
+dedicated `tgbulk` user, generates the master key, writes config + env, and
+installs a hardened systemd unit (enabled at boot, auto-restart).
+
+**Only two settings to set up** (edit `/etc/telegram-bulk-delivery/env`, then `sudo systemctl restart telegram-bulk-delivery`):
+
+```ini
+BULK_MASTER_KEY=<install.sh already filled this in — back it up>
+BULK_API_KEY=your-long-random-key   # OPTIONAL but recommended: gates every /bot endpoint
+```
+
+Optional toggle in `/etc/telegram-bulk-delivery/config.toml` (defaults are already safe):
+`allow_private_targets = false` — leave it `false` unless a per-bot `telegram_api_base`
+must point at a **private/local** bot server (e.g. a local mock for testing).
+
+That's it. A call once the service is up (note the `BULK_API_KEY` header):
+
+```sh
+curl -s -X POST "http://127.0.0.1:8080/bot<TOKEN>/sendMessage" \
+  -H "Authorization: Bearer <BULK_API_KEY>" -H 'Content-Type: application/json' \
+  -d '{"parameters":{"text":"hi"},"recipients":[{"chat_id":123456}]}'
+```
+
+For a **public** deployment also put a TLS reverse proxy in front (see §3 below) —
+bot tokens travel in the URL path.
+
 ### 1. Get a release
 
 The repo is private, so download with the GitHub CLI (`gh auth login` once):
