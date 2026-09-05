@@ -6,7 +6,7 @@ One binary. One config file. One env var. SQLite and TLS roots are compiled in �
 
 ---
 
-## Deploy on Debian 13
+## Deploy
 
 The release artifact is a glibc-linked binary built for your architecture. It needs nothing but base Debian 13 (no `libsqlite3`, no `ca-certificates`, no OpenSSL).
 
@@ -45,10 +45,10 @@ curl -s -X POST "http://127.0.0.1:8080/bot<TOKEN>/sendMessage" \
   -d '{"parameters":{"text":"hi"},"recipients":[{"chat_id":123456}]}'
 ```
 
-For a **public** deployment also put a TLS reverse proxy in front (see §3 below) —
+For a **public** deployment also put a TLS reverse proxy in front (see [Expose it](#expose-it) below) —
 bot tokens travel in the URL path.
 
-### 1. Get a release
+### Download a release
 
 The repo is private, so download with the GitHub CLI (`gh auth login` once):
 
@@ -59,7 +59,7 @@ gh release download -R thaqiif/telegram-bot-delivery-enhanced \
 
 Or from a machine with `curl` + a token — then transfer to the server.
 
-### 2. Install
+### Install
 
 ```sh
 tar -xzf /tmp/tgbulk.tar.gz
@@ -83,7 +83,7 @@ curl -s http://127.0.0.1:8080/readyz   # -> ready
 
 Logs: `journalctl -u telegram-bulk-delivery -f`
 
-### 3. Expose it
+### Expose it
 
 The service binds `0.0.0.0:8080` by default. Put a TLS proxy in front for public exposure:
 
@@ -125,6 +125,9 @@ server {
 ```
 
 Then uncomment `TELEGRAM_API_BASE=http://127.0.0.1:8443` in `/etc/telegram-bulk-delivery/env` and restart. For a **production** bot token, leave the default — the service talks straight to `https://api.telegram.org`.
+
+> A test-environment token can also be used **without** a rewrite proxy — point the per-bot `telegram_api_base` at
+> `https://api.telegram.org/bot{token}/test` (see [Per-bot API base](#per-bot-api-base-telegram-test-env--local-bot-servers)).
 
 ---
 
@@ -181,6 +184,7 @@ curl -s -X POST "http://127.0.0.1:8080/bot${TOKEN}/setBulkDeliveryConfig" \
 curl -s "http://127.0.0.1:8080/bot${TOKEN}/getBulkDeliveryConfig"
 curl -s -X POST "http://127.0.0.1:8080/bot${TOKEN}/resetBulkDeliveryConfig"
 ```
+
 ### Per-bot API base (Telegram test env / local bot servers)
 
 A bot can override the upstream endpoint instead of using the process default
@@ -246,34 +250,25 @@ the per-bot API base.
 
 ---
 
-## Releases & CI (self-hosted runner)
+## Configuration reference
 
-Release artifacts are built by a **self-hosted Linux runner** on a Debian 13 machine, so the binary's glibc exactly matches the deployment target.
+`config/operator.defaults.toml` documents every knob; the important ones:
 
-### Register a runner (one-time, on your Debian 13 build box)
+| Key | Default | Meaning |
+|-----|---------|---------|
+| `database_path` | `data/…db` | SQLite database (keep on local persistent disk) |
+| `bind` | `0.0.0.0:8080` | HTTP listen address |
+| `max_recipients_per_job` | `100000` | hard per-job ceiling |
+| `global_nonterminal_recipients` | `500000` | global in-flight ceiling across all jobs |
+| `request_body_bytes` / `multipart_body_bytes` | 32 MiB / 64 MiB | submit body caps |
+| `free_disk_reserve_bytes` | 1 GiB | submits are refused below this |
+| `wal_truncate_bytes` | 64 MiB | forced WAL truncate threshold |
+| `retention_sweep_secs` / `retention_batch` | 30 / 500 | terminal-job GC cadence |
+| `allow_private_targets` | `false` | when true, a per-bot API base may point at a private/loopback host (local/testing bot servers); leave false in production |
 
-```sh
-sudo apt-get install -y git curl build-essential pkg-config
-```
+`BULK_MASTER_KEY` (env, required) is base64 of exactly 32 bytes; it derives per-bot AEAD keys that encrypt tokens at rest. Rotate by re-registering bots.
 
-Then: GitHub repo → **Settings → Actions → Runners → New self-hosted runner → Linux/arm64** (match the machine), and follow the printed commands (`./config.sh --url … --token …`, `./run.sh`). To keep it running: `sudo ./svc.sh install && sudo ./svc.sh start`.
-
-### Cut a release
-
-**Always cut releases from `main`** — a `v*` tag must point at the tip of the
-merged `main` branch (or a commit reachable from it), never at a feature
-branch. Quickest: `git checkout main && git pull --ff-only`, then:
-
-```sh
-git tag -a v0.2.1 -m "v0.2.1"
-git push origin v0.2.1
-```
-
-The [`release`](.github/workflows/release.yml) workflow then: installs Rust if missing → `cargo build --release --locked` → runs the capped test suite → packages `telegram-bulk-delivery-vX.Y.Z-linux-<arch>.tar.gz` (binary + example config + systemd unit + `install.sh`) with a `.sha256` → publishes a GitHub Release. Architecture is detected from the runner (`aarch64` / `x86_64`), so the same flow serves ARM and x86 machines.
-
-### Multipart jobs (photos, documents, …)
-
-Submit multipart with a required `payload_json` part (the same envelope as above) plus file parts. Files are persisted by temp write → `fdatasync` → dir `fsync` → atomic rename → dir `fsync` **before** the job is promoted, so a crash mid-upload never half-delivers.
+`BULK_API_KEY` (env, optional) is a shared key that, when set, gates **every** `/bot<TOKEN>/...` endpoint: a caller must present `Authorization: Bearer <key>` or `X-TGBulk-Key: <key>`. `/healthz`, `/readyz`, and `/metrics` stay unauthenticated. Base64-encode the key used at the proxy, e.g. `export BULK_API_KEY="$(openssl rand -base64 32)"`.
 
 ---
 
@@ -295,6 +290,8 @@ When configured, terminalization atomically creates one logical event split into
  "results":[["10001",321,1770000000],["10002",322,1770000002]]}
 ```
 
+---
+
 ## Build from source
 
 Requirements: Rust 1.89+ (rustup), a C toolchain (`build-essential`), ~1 GiB free RAM.
@@ -306,27 +303,42 @@ export BULK_MASTER_KEY="$(openssl rand -base64 32)"   # encrypts bot tokens at r
 cargo run -p telegram-bulk-delivery -- config/operator.defaults.toml
 ```
 
+> Multipart jobs (photos, documents, …): submit multipart with a required
+> `payload_json` part (the same envelope as above) plus file parts. Files are
+> persisted by temp write → `fdatasync` → dir `fsync` → atomic rename → dir
+> `fsync` **before** the job is promoted, so a crash mid-upload never
+> half-delivers.
+
 On small (1 CPU / 1 GiB) machines cap the build: `CARGO_BUILD_JOBS=1 cargo build --release` and run tests with `-- --test-threads=1`.
 
-## Configuration reference
+---
 
-`config/operator.defaults.toml` documents every knob; the important ones:
+## Releases & CI
 
-| Key | Default | Meaning |
-|-----|---------|---------|
-| `database_path` | `data/…db` | SQLite database (keep on local persistent disk) |
-| `bind` | `0.0.0.0:8080` | HTTP listen address |
-| `max_recipients_per_job` | `100000` | hard per-job ceiling |
-| `global_nonterminal_recipients` | `500000` | global in-flight ceiling across all jobs |
-| `request_body_bytes` / `multipart_body_bytes` | 32 MiB / 64 MiB | submit body caps |
-| `free_disk_reserve_bytes` | 1 GiB | submits are refused below this |
-| `wal_truncate_bytes` | 64 MiB | forced WAL truncate threshold |
-| `retention_sweep_secs` / `retention_batch` | 30 / 500 | terminal-job GC cadence |
-| `allow_private_targets` | `false` | when true, a per-bot API base may point at a private/loopback host (local/testing bot servers); leave false in production |
+Release artifacts are **built and published entirely by CI on a GitHub-hosted
+runner** — no self-hosted runner needed. The [`release`](.github/workflows/release.yml)
+workflow builds **both** `x86_64` (natively) and `aarch64` (cross-compiled via
+`gcc-aarch64-linux-gnu`) on a single `ubuntu-24.04` runner, runs the capped test
+suite, and publishes a GitHub Release.
 
-`BULK_MASTER_KEY` (env, required) is base64 of exactly 32 bytes; it derives per-bot AEAD keys that encrypt tokens at rest. Rotate by re-registering bots.
+### Cut a release
 
-`BULK_API_KEY` (env, optional) is a shared key that, when set, gates **every** `/bot<TOKEN>/...` endpoint: a caller must present `Authorization: Bearer <key>` or `X-TGBulk-Key: <key>`. `/healthz`, `/readyz`, and `/metrics` stay unauthenticated. Base64-encode the key used at the proxy, e.g. `export BULK_API_KEY="$(openssl rand -base64 32)"`.
+**Always cut releases from `main`** — a `v*` tag must point at the tip of the
+merged `main` branch (or a commit reachable from it), never at a feature
+branch. Quickest: `git checkout main && git pull --ff-only`, then:
+
+```sh
+git tag -a v0.2.2 -m "v0.2.2"
+git push origin v0.2.2
+```
+
+The workflow packages `telegram-bulk-delivery-vX.Y.Z-linux-{x86_64,aarch64}.tar.gz`
+(binary + example config + systemd unit + `install.sh`) with a `.sha256` each,
+and attaches all four as release assets. The cross-built binary links against
+Ubuntu 24.04's glibc (2.39), which runs on the Debian 13 deployment target
+(glibc 2.41) — glibc is backward compatible, so one CI build serves both.
+
+---
 
 ## Security & operations notes
 
@@ -346,4 +358,3 @@ only** — restoring a pre-migration snapshot into the new release works, but
 rolling the new DB backward into the previous release's binary fails on the
 column count. Snapshot semantics: switching a bot's base affects only jobs
 submitted after the change (each job snapshots the config at accept time).
-
