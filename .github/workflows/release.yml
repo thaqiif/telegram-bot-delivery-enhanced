@@ -21,10 +21,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Rust (stable + aarch64 target)
+      - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-unknown-linux-gnu
+
+      # The repo pins 1.89.0 via rust-toolchain.toml, which overrides 'stable' for
+      # directory-based commands. Add the aarch64 std to that pinned toolchain
+      # (the one cargo actually uses for the cross build) — NOT to 'stable'.
+      - name: Add aarch64 target (repo-pinned toolchain)
+        run: rustup target add aarch64-unknown-linux-gnu
 
       - name: Install aarch64 C cross-compiler
         run: |
