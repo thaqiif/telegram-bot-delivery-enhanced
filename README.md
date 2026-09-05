@@ -260,9 +260,13 @@ Then: GitHub repo → **Settings → Actions → Runners → New self-hosted run
 
 ### Cut a release
 
+**Always cut releases from `main`** — a `v*` tag must point at the tip of the
+merged `main` branch (or a commit reachable from it), never at a feature
+branch. Quickest: `git checkout main && git pull --ff-only`, then:
+
 ```sh
-git tag v0.2.0
-git push origin v0.2.0
+git tag -a v0.2.1 -m "v0.2.1"
+git push origin v0.2.1
 ```
 
 The [`release`](.github/workflows/release.yml) workflow then: installs Rust if missing → `cargo build --release --locked` → runs the capped test suite → packages `telegram-bulk-delivery-vX.Y.Z-linux-<arch>.tar.gz` (binary + example config + systemd unit + `install.sh`) with a `.sha256` → publishes a GitHub Release. Architecture is detected from the runner (`aarch64` / `x86_64`), so the same flow serves ARM and x86 machines.
