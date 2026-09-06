@@ -113,17 +113,15 @@ h2 { font-size: clamp(28px, 4.2vw, 40px); margin-bottom: 16px; }
   text-decoration: none;
 }
 .btn:hover { transform: translateY(-1px); text-decoration: none; }
-.btn-primary { border: none; color: #fff; background: var(--accent-grad); }
-.btn-primary:hover { filter: brightness(1.06); }
+.btn-primary { border: none; color: #fff; background: var(--accent); }
+.btn-primary:hover { filter: brightness(1.08); }
 .btn-ghost:hover { background: color-mix(in srgb, var(--text) 6%, transparent); border-color: var(--border-strong); }
 
 /* ============ hero ============ */
 .hero { position: relative; padding-top: clamp(64px, 10vw, 120px); padding-bottom: clamp(48px, 8vw, 90px); overflow: hidden; }
 .hero::before {
   content: ""; position: absolute; inset: 0; pointer-events: none;
-  background:
-    radial-gradient(720px 460px at 18% 8%, var(--glow-a), transparent 62%),
-    radial-gradient(640px 420px at 85% 18%, rgba(122,162,255,.10), transparent 60%);
+  background: radial-gradient(720px 460px at 18% 8%, var(--glow-a), transparent 62%);
 }
 .hero-grid {
   position: absolute; inset: 0; pointer-events: none;
@@ -372,7 +370,7 @@ footer { border-top: 1px solid var(--border); background: color-mix(in srgb, var
           <div class="term-body">
 <span class="ln"><span class="prompt">$</span> <span class="cmd">curl -fsSL https://raw.githubusercontent.com/thaqiif/telegram-bot-delivery-enhanced/main/deploy/install.sh <span class="hl">| sudo bash</span></span></span>
 <span class="ln"><span class="dim">>> resolving latest release &hellip;</span> <span class="ok">v0.2.3</span></span>
-<span class="ln"><span class="dim">>> downloading telegram-bulk-delivery-0.2.3-linux-aarch64 (v0.2.3)</span></span>
+<span class="ln"><span class="dim">>> downloading telegram-bulk-delivery-0.2.3-linux-aarch64</span></span>
 <span class="ln"><span class="dim">>> verifying sha256 &hellip;</span> <span class="ok">OK</span></span>
 <span class="ln"><span class="dim">>> installed /usr/local/bin/telegram-bulk-delivery</span></span>
 <span class="ln"><span class="dim">>> service active &middot; /healthz &rarr;</span> <span class="ok">ok</span></span>
