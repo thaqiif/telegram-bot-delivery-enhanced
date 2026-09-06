@@ -15,6 +15,23 @@ The release artifact is a glibc-linked binary built for your architecture. It ne
 On a Debian 13 server (x86_64 or arm64), ~1 minute:
 
 ```sh
+curl -fsSL https://raw.githubusercontent.com/thaqiif/telegram-bot-delivery-enhanced/main/deploy/install.sh | sudo bash
+curl -s http://127.0.0.1:8080/healthz   # -> ok
+```
+
+Non-root without sudo: the plain `| bash` one-liner re-runs itself via sudo
+automatically. The installer fetches the **latest release** for your
+architecture, verifies its sha256, installs the binary + a hardened systemd
+unit, and generates the master key. Pin an exact version with:
+
+```sh
+TGBULK_VERSION=v0.2.3 curl -fsSL https://raw.githubusercontent.com/thaqiif/telegram-bot-delivery-enhanced/main/deploy/install.sh | sudo bash
+```
+
+No sudo handy? Prefer GitHub's CLI (also works for any authenticated user,
+e.g. if the repo is ever set back to private):
+
+```sh
 gh release download -R thaqiif/telegram-bot-delivery-enhanced \
   -p "telegram-bulk-delivery-*-linux-$(uname -m).tar.gz" -O /tmp/tgbulk.tar.gz
 tar -xzf /tmp/tgbulk.tar.gz && cd telegram-bulk-delivery-*-linux-*/
@@ -24,7 +41,9 @@ curl -s http://127.0.0.1:8080/healthz   # -> ok   (localhost OK once install.sh 
 
 `install.sh` is idempotent and does everything — installs the binary, creates a
 dedicated `tgbulk` user, generates the master key, writes config + env, and
-installs a hardened systemd unit (enabled at boot, auto-restart).
+installs a hardened systemd unit (enabled at boot, auto-restart). Re-running it
+upgrades the binary and restarts the service only when the binary changed;
+existing config, master key, and env file are never overwritten.
 
 **Only two settings to set up** (edit `/etc/telegram-bulk-delivery/env`, then `sudo systemctl restart telegram-bulk-delivery`):
 
