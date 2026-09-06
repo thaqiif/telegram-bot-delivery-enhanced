@@ -4,6 +4,8 @@ A production-oriented, API-only Rust service for bulk outbound Telegram Bot API 
 
 One binary. One config file. One env var. SQLite and TLS roots are compiled in — no runtime packages beyond a base Debian system.
 
+> 🌐 **Landing page:** https://thaqiif.github.io/telegram-bot-delivery-enhanced/
+
 ---
 
 ## Deploy

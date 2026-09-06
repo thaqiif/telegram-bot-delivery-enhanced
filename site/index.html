@@ -1,0 +1,860 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TGBulk — Bulk Telegram delivery, done right</title>
+<meta name="description" content="TGBulk is a production-ready, API-only Rust service for bulk Telegram Bot API delivery. Submit one request with up to 100,000 recipients; it schedules every send under Telegram's rate limits with retries, progress tracking, and webhooks.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="TGBulk — Bulk Telegram delivery, done right">
+<meta property="og:description" content="One request, up to 100k recipients. Async delivery under Telegram rate limits — fair scheduling, retries, progress, signed webhooks. Built in Rust.">
+<meta property="og:url" content="https://thaqiif.github.io/telegram-bot-delivery-enhanced/">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230D1B2A'/%3E%3Cpath d='M12 32c12-5.2 20-8.9 24-11.1C45 15.8 47 15.4 48.2 15.7c1 .3 1.4 1.4 1 2.2-.3.9-2.4 4.4-6.4 10.7-2.7 4.2-5.2 8.3-5.7 9.4-.9 2-2.3 2-3.7.1-.8-1.1-5.3-9.2-5.5-9.8-.2-.6 0-1.2.5-1.6.2-.2.5-.3.8-.4.3-.2.4-.3.4-.5.1-.5-1.7-1.6-2.6-2.1-1.6-.8-3-.4-4.2.4-1.6 1.1-5 3.3-5.4 3.5-.7.3-1.8.5-1.5 1.3.2.8 3.8 4.7 6 6.4 1.6 1.2 3.3 1.8 4.8 2.2.3 1.9.9 5.4 1.1 6.4.3 1.6.8 2.6 1.5 2.7.8.1 2.3-1.2 3.4-2.2 1.4-1.4 2.4.1 3.4 1.4 1 .1 2.9.9 3.6 1.3z' fill='%232AABEE'/%3E%3C/svg%3E">
+<style>
+/* ============ tokens ============ */
+:root, :root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #070B14;
+  --bg-soft: #0B1220;
+  --panel: #0F1829;
+  --panel-2: #111C30;
+  --border: rgba(148, 178, 224, .14);
+  --border-strong: rgba(148, 178, 224, .24);
+  --text: #E8EEF7;
+  --muted: #93A4BE;
+  --faint: #64748E;
+  --accent: #2AABEE;
+  --accent-2: #7AA2FF;
+  --accent-grad: linear-gradient(135deg, #2AABEE 0%, #7AA2FF 100%);
+  --ok: #3DDC97;
+  --warn: #F5C451;
+  --danger: #FF6B7A;
+  --code-bg: #060A12;
+  --glow-a: rgba(42,171,238,.10);
+ ​
+}
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg: #F7F9FC;
+  --bg-soft: #FFFFFF;
+  --panel: #FFFFFF;
+  --panel-2: #F4F7FB;
+  --border: rgba(23, 45, 80, .10);
+  --border-strong: rgba(23, 45, 80, .18);
+  --text: #0F1B30;
+  --muted: #4A5C78;
+  --faint: #8494AC;
+  --accent: #0E86CC;
+  --accent-2: #3B68E8;
+  --accent-grad: linear-gradient(135deg, #0E86CC 0%, #3B68E8 100%);
+  --ok: #0E9F6E;
+  --warn: #AD7E0C;
+  --danger: #D33A4D;
+  --code-bg: #0B1220;
+  --glow-a: rgba(14, 134, 204, .10);
+}
+/* ============ base ============ */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  overflow-x: hidden;
+}
+::selection { background: rgba(42,171,238,.28); }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+img, svg { display: block; max-width: 100%; }
+.container { width: min(1120px, 92vw); margin-inline: auto; }
+section { padding-block: clamp(64px, 9vw, 120px); }
+h1,h2,h3,h4 { line-height: 1.15; letter-spacing: -.02em; font-weight: 700; }
+.eyebrow {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 12px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--accent); margin-bottom: 18px;
+}
+.eyebrow::before { content: ""; width: 22px; height: 2px; border-radius: 2px; background: var(--accent-grad); }
+h2 { font-size: clamp(28px, 4.2vw, 40px); margin-bottom: 16px; }
+.lede { font-size: clamp(16px, 2vw, 19px); color: var(--muted); max-width: 640px; }
+.grad { background: var(--accent-grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.mono { font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+
+/* ============ nav ============ */
+.nav {
+  position: sticky; top: 0; z-index: 50;
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  background: color-mix(in srgb, var(--bg) 78%, transparent);
+  border-bottom: 1px solid var(--border);
+}
+.nav-inner { display: flex; align-items: center; gap: 28px; height: 64px; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 17px; color: var(--text); text-decoration: none; }
+.brand:hover { text-decoration: none; }
+.brand svg { width: 30px; height: 30px; }
+.brand .sub { color: var(--faint); font-weight: 500; font-size: 12px; margin-left: 1px; }
+.nav-links { display: flex; gap: 4px; margin-left: 8px; }
+.nav-links a {
+  color: var(--muted); font-size: 14px; font-weight: 500; padding: 8px 12px; border-radius: 8px;
+  transition: color .15s, background .15s;
+}
+.nav-links a:hover { color: var(--text); background: color-mix(in srgb, var(--text) 6%, transparent); text-decoration: none; }
+.nav-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.nav-toggle { display: none; }
+
+/* ============ buttons ============ */
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-weight: 600; font-size: 14px; padding: 10px 18px; border-radius: 10px;
+  border: 1px solid var(--border-strong); background: transparent; color: var(--text);
+  cursor: pointer; transition: transform .12s, box-shadow .12s, background .12s, border-color .12s;
+  text-decoration: none;
+}
+.btn:hover { transform: translateY(-1px); text-decoration: none; }
+.btn-primary { border: none; color: #fff; background: linear-gradient(135deg, #1595D9, #3B68E8); box-shadow: 0 6px 24px -8px rgba(42,171,238,.55); }
+.btn-primary:hover { box-shadow: 0 10px 30px -8px rgba(42,171,238,.7); }
+.btn-ghost:hover { background: color-mix(in srgb, var(--text) 6%, transparent); border-color: var(--border-strong); }
+
+/* ============ hero ============ */
+.hero { position: relative; padding-top: clamp(64px, 10vw, 120px); padding-bottom: clamp(48px, 8vw, 90px); overflow: hidden; }
+.hero::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background:
+    radial-gradient(720px 460px at 18% 8%, var(--glow-a), transparent 62%),
+    radial-gradient(640px 420px at 85% 18%, rgba(122,162,255,.10), transparent 60%);
+}
+.hero-grid {
+  position: absolute; inset: 0; pointer-events: none;
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--border) 55%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in srgb, var(--border) 55%, transparent) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(680px 420px at 60% 10%, #000 0%, transparent 75%);
+  -webkit-mask-image: radial-gradient(680px 420px at 60% 10%, #000 0%, transparent 75%);
+}
+.hero .container { position: relative; z-index: 2; }
+.hero-inner { display: grid; grid-template-columns: 1.05fr .95fr; gap: 56px; align-items: center; }
+.pill {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: 12.5px; font-weight: 600; letter-spacing: .02em; color: var(--muted);
+  border: 1px solid var(--border-strong); background: color-mix(in srgb, var(--text) 4%, transparent);
+  padding: 7px 14px; border-radius: 100px; margin-bottom: 26px;
+}
+.pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 4px color-mix(in srgb, var(--ok) 18%, transparent); }
+.hero h1 { font-size: clamp(38px, 6vw, 60px); font-weight: 800; margin-bottom: 22px; letter-spacing: -.03em; }
+.hero .lede { margin-bottom: 34px; }
+.hero-ctas { display: flex; flex-wrap: wrap; gap: 14px; margin-bottom: 44px; }
+.hero-stats { display: flex; flex-wrap: wrap; gap: 0; border-top: 1px solid var(--border); padding-top: 24px; }
+.stat { flex: 1 1 150px; padding-right: 20px; }
+.stat b { display: block; font-size: 22px; font-weight: 800; letter-spacing: -.02em; }
+.stat b em { font-style: normal; color: var(--accent); }
+.stat span { font-size: 12.5px; color: var(--muted); }
+
+/* terminal */
+.term {
+  background: #060A12; border: 1px solid rgba(148,178,224,.16); border-radius: 16px;
+  box-shadow: 0 24px 70px -24px rgba(2,8,20,.9), 0 0 0 1px rgba(255,255,255,.02) inset;
+  overflow: hidden;
+}
+.term-head { display: flex; align-items: center; gap: 8px; padding: 13px 16px; border-bottom: 1px solid rgba(148,178,224,.10); background: rgba(148,178,224,.04); }
+.tdot { width: 12px; height: 12px; border-radius: 50%; }
+.tdot.r { background: #FF5F57; } .tdot.y { background: #FEBC2E; } .tdot.g { background: #28C840; }
+.term-title { margin-left: 8px; font-size: 12px; color: #7C8CA6; font-family: "JetBrains Mono", monospace; }
+.term-body { padding: 20px 22px; font-family: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace; font-size: 12.8px; line-height: 1.75; color: #C7D3E6; overflow-x: auto; }
+.term-body .prompt { color: #4C86C6; }
+.term-body .ok { color: #3DDC97; }
+.term-body .dim { color: #64748E; }
+.term-body .cmd { color: #E8EEF7; }
+.term-body .hl { color: #7AA2FF; }
+.blink::after { content: "▊"; color: #4C86C6; animation: blink 1.1s steps(1) infinite; }
+@keyframes blink { 50% { opacity: 0; } }
+
+/* ============ trust strip ============ */
+.trust { border-block: 1px solid var(--border); background: color-mix(in srgb, var(--bg-soft) 60%, transparent); padding-block: 26px; }
+.trust-inner { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 36px; justify-content: center; }
+.trust-item { display: inline-flex; align-items: center; gap: 9px; font-size: 13.5px; font-weight: 600; color: var(--muted); }
+.trust-item svg { width: 18px; height: 18px; color: var(--accent); }
+
+/* ============ sections ============ */
+.problem { background: color-mix(in srgb, var(--bg-soft) 50%, transparent); }
+.problem-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-top: 40px; }
+.card {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 18px;
+  padding: 30px 30px 34px; position: relative; overflow: hidden;
+  transition: transform .18s, border-color .18s, box-shadow .18s;
+}
+.card:hover { transform: translateY(-3px); border-color: var(--border-strong); box-shadow: 0 22px 50px -28px rgba(5,12,26,.85); }
+.card h3 { font-size: 19px; margin-bottom: 12px; display: flex; align-items: center; gap: 10px; }
+.card h3 .badge { font-size: 11px; font-weight: 700; letter-spacing: .06em; padding: 3px 9px; border-radius: 100px; text-transform: uppercase; }
+.card ul { list-style: none; }
+.card li { padding-left: 26px; position: relative; color: var(--muted); font-size: 15px; margin-top: 10px; }
+.card.x li::before { content: "✕"; position: absolute; left: 2px; color: var(--danger); font-weight: 700; }
+.card.ok li::before { content: "✓"; position: absolute; left: 2px; color: var(--ok); font-weight: 800; }
+.badge.x { background: color-mix(in srgb, var(--danger) 16%, transparent); color: var(--danger); }
+.badge.ok { background: color-mix(in srgb, var(--ok) 16%, transparent); color: var(--ok); }
+
+/* steps */
+.steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; margin-top: 46px; counter-reset: step; }
+.step { position: relative; }
+.step .card { height: 100%; padding-top: 40px; }
+.step .card::before {
+  counter-increment: step; content: counter(step, decimal-leading-zero);
+  position: absolute; top: 22px; right: 24px; font-size: 13px; font-weight: 800;
+  font-family: "JetBrains Mono", monospace; color: var(--faint);
+  background: color-mix(in srgb, var(--text) 6%, transparent); border: 1px solid var(--border);
+  width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center;
+}
+.step-icon { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; margin-bottom: 16px; background: var(--accent-grad); color: #fff; box-shadow: 0 8px 20px -8px rgba(42,171,238,.6); }
+.step-icon svg { width: 20px; height: 20px; }
+.step h3 { font-size: 16.5px; margin-bottom: 8px; }
+.step p { font-size: 13.5px; color: var(--muted); }
+
+/* features */
+.features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 46px; }
+.feat { padding: 28px; }
+.feat-icon { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; margin-bottom: 16px; background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 26%, transparent); }
+.feat-icon svg { width: 20px; height: 20px; }
+.feat h3 { font-size: 16.5px; margin-bottom: 8px; }
+.feat p { font-size: 13.8px; color: var(--muted); }
+
+/* limits table */
+.table-wrap { margin-top: 44px; border: 1px solid var(--border); border-radius: 18px; overflow: hidden; background: var(--panel); }
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { text-align: left; padding: 14px 22px; border-bottom: 1px solid var(--border); }
+th { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--faint); background: color-mix(in srgb, var(--text) 3%, transparent); font-weight: 700; }
+tbody tr:last-child td { border-bottom: none; }
+td:first-child { font-weight: 600; }
+td code { background: color-mix(in srgb, var(--text) 8%, transparent); border: 1px solid var(--border); border-radius: 6px; padding: 1px 7px; font-size: 12.5px; font-family: "JetBrains Mono", monospace; }
+.note { margin-top: 18px; font-size: 13.5px; color: var(--muted); display: flex; gap: 10px; align-items: flex-start; }
+.note svg { width: 17px; height: 17px; flex: none; color: var(--accent); margin-top: 2px; }
+
+/* quickstart */
+.qs { background: color-mix(in srgb, var(--bg-soft) 50%, transparent); }
+.qs-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; margin-top: 40px; align-items: start; }
+.qs-card { padding: 26px; }
+.qs-card h3 { font-size: 15px; margin-bottom: 14px; display: flex; align-items: center; gap: 10px; }
+.num-badge { width: 24px; height: 24px; border-radius: 8px; background: var(--accent-grad); color: #fff; font-size: 12px; font-weight: 800; display: grid; place-items: center; font-family: "JetBrains Mono", monospace; }
+.code-block { position: relative; border-radius: 12px; background: var(--code-bg); border: 1px solid var(--border); overflow: hidden; }
+.code-block pre { padding: 16px 18px; overflow-x: auto; font-family: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace; font-size: 12.3px; line-height: 1.7; color: #C7D3E6; }
+.code-block .copy {
+  position: absolute; top: 10px; right: 10px; z-index: 2;
+  background: color-mix(in srgb, #fff 10%, transparent); border: 1px solid rgba(255,255,255,.12);
+  color: #C7D3E6; border-radius: 8px; font-size: 11.5px; font-weight: 600; padding: 5px 10px; cursor: pointer;
+  font-family: inherit; transition: background .12s, color .12s;
+}
+.code-block .copy:hover { background: color-mix(in srgb, #fff 18%, transparent); color: #fff; }
+.code-block .copy.done { color: #3DDC97; }
+.code-block pre .cm { color: #64748E; }        /* comment */
+.code-block pre .st { color: #7ACB9B; }        /* string */
+.code-block pre .ke { color: #7AA2FF; }        /* key */
+.code-block pre .nu { color: #F5C451; }        /* number */
+.step-caption { font-size: 13px; color: var(--faint); margin-top: 12px; }
+.inline-link { font-weight: 600; }
+
+/* security */
+.sec-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin-top: 44px; }
+.sec-item { display: flex; gap: 14px; padding: 22px 24px; background: var(--panel); border: 1px solid var(--border); border-radius: 16px; }
+.sec-item svg { width: 22px; height: 22px; flex: none; color: var(--ok); margin-top: 2px; }
+.sec-item h4 { font-size: 15.5px; margin-bottom: 5px; }
+.sec-item p { font-size: 13.5px; color: var(--muted); }
+
+/* faq */
+.faq { max-width: 780px; margin-inline: auto; }
+details { border: 1px solid var(--border); border-radius: 14px; background: var(--panel); margin-top: 14px; overflow: hidden; }
+summary {
+  cursor: pointer; display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 18px 22px; font-weight: 600; font-size: 15.5px; list-style: none;
+}
+summary::-webkit-details-marker { display: none; }
+summary::after { content: "+"; font-size: 20px; font-weight: 500; color: var(--accent); transition: transform .18s; font-family: "JetBrains Mono", monospace; }
+details[open] summary::after { transform: rotate(45deg); }
+details .a { padding: 0 22px 20px; color: var(--muted); font-size: 14.5px; }
+
+/* cta banner */
+.cta-band { text-align: center; padding-block: clamp(70px, 9vw, 110px); position: relative; overflow: hidden; }
+.cta-band::before { content: ""; position: absolute; inset: 0; background: radial-gradient(720px 380px at 50% 0%, var(--glow-a), transparent 70%); pointer-events: none; }
+.cta-band h2 { margin-bottom: 14px; }
+.cta-band p { color: var(--muted); max-width: 520px; margin: 0 auto 30px; font-size: 16px; }
+.cta-band .btn { transform: scale(1); }
+
+/* footer */
+footer { border-top: 1px solid var(--border); background: color-mix(in srgb, var(--bg-soft) 55%, transparent); padding-block: 54px 40px; }
+.foot-grid { display: grid; grid-template-columns: 1.6fr 1fr 1fr 1fr; gap: 36px; }
+.foot-brand p { color: var(--muted); font-size: 13.5px; margin-top: 14px; max-width: 300px; }
+.foot-brand .brand { margin-bottom: 4px; }
+.foot h5 { font-size: 12px; letter-spacing: .1em; text-transform: uppercase; color: var(--faint); margin-bottom: 16px; font-weight: 700; }
+.foot a { display: block; color: var(--muted); font-size: 14px; margin-top: 9px; transition: color .12s; }
+.foot a:hover { color: var(--text); text-decoration: none; }
+.foot-bottom { margin-top: 44px; padding-top: 24px; border-top: 1px solid var(--border); display: flex; flex-wrap: wrap; gap: 10px 22px; justify-content: space-between; font-size: 13px; color: var(--faint); }
+.foot-bottom .status { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); font-weight: 500; }
+.foot-bottom .status .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); }
+
+/* reveal animation */
+.reveal { opacity: 0; transform: translateY(18px); transition: opacity .7s cubic-bezier(.2,.7,.3,1), transform .7s cubic-bezier(.2,.7,.3,1); }
+.reveal.in { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  .reveal { opacity: 1; transform: none; transition: none; }
+  .blink::after { animation: none; }
+  html { scroll-behavior: auto; }
+}
+
+/* ============ responsive ============ */
+@media (max-width: 980px) {
+  .hero-inner { grid-template-columns: 1fr; gap: 40px; }
+  .steps { grid-template-columns: repeat(2, 1fr); }
+  .features-grid { grid-template-columns: repeat(2, 1fr); }
+  .qs-grid { grid-template-columns: 1fr; }
+  .sec-grid { grid-template-columns: 1fr; }
+  .foot-grid { grid-template-columns: 1fr 1fr; }
+  .nav-links { display: none; position: absolute; top: 64px; left: 0; right: 0; flex-direction: column; background: var(--bg-soft); border-bottom: 1px solid var(--border); padding: 12px 4vw 20px; }
+  .nav-links.open { display: flex; }
+  .nav-toggle { display: inline-flex; }
+}
+@media (max-width: 640px) {
+  .problem-grid { grid-template-columns: 1fr; }
+  .features-grid { grid-template-columns: 1fr; }
+  .steps { grid-template-columns: 1fr; }
+  .hero-stats { gap: 18px 0; }
+  .stat { flex: 1 1 100%; }
+  .foot-grid { grid-template-columns: 1fr; gap: 30px; }
+}
+</style>
+</head>
+<body>
+
+<header class="nav">
+  <div class="container nav-inner">
+    <a class="brand" href="#top" aria-label="TGBulk home">
+      <svg viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="url(#bgGrad)"/><defs><linearGradient id="bgGrad" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1595D9"/><stop offset="1" stop-color="#3B68E8"/></linearGradient></defs><path d="M14 31.6 50 17.2c1.6-.6 3.2.5 2.9 2.2l-4.5 23.9c-.3 1.5-1.9 2.3-3.2 1.7l-8.6-5.6-5.2 5.1c-1 .8-2.4.2-2.6-1.1l-2-7.9L14.9 35c-1.5-.6-1.7-2.7-.9-3.4z" fill="#fff"/><circle cx="44" cy="22" r="3.4" fill="#FFD479"/></svg>
+      TGBulk <span class="sub">Telegram Bulk Delivery</span>
+    </a>
+    <nav class="nav-links" id="navLinks">
+      <a href="#features">Features</a>
+      <a href="#how">How it works</a>
+      <a href="#quickstart">Quick start</a>
+      <a href="#api">API</a>
+      <a href="#security">Security</a>
+      <a href="#faq">FAQ</a>
+    </nav>
+    <div class="nav-right">
+      <button class="btn btn-ghost nav-toggle" id="navToggle" aria-label="Toggle navigation" aria-expanded="false">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
+      <button class="btn btn-ghost" id="themeToggle" aria-label="Toggle color theme">
+        <svg id="iconMoon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+        <svg id="iconSun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4.5"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5 5l1.4 1.4M17.6 17.6 19 19M19 5l-1.4 1.4M6.4 17.6 5 19"/></svg>
+      </button>
+      <a class="btn btn-primary" href="https://github.com/thaqiif/telegram-bot-delivery-enhanced" target="_blank" rel="noopener">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55v-2.15c-3.2.7-3.87-1.36-3.87-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.03 1.76 2.7 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.23-1.28-5.23-5.68 0-1.26.45-2.28 1.18-3.09-.12-.29-.51-1.46.11-3.05 0 0 .96-.31 3.15 1.18a10.9 10.9 0 0 1 5.74 0c2.18-1.49 3.14-1.18 3.14-1.18.63 1.59.24 2.76.12 3.05.73.81 1.18 1.83 1.18 3.09 0 4.41-2.69 5.39-5.25 5.67.41.36.78 1.06.78 2.14v3.18c0 .3.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5z"/></svg>
+        GitHub
+      </a>
+    </div>
+  </div>
+</header>
+
+<main id="top">
+  <!-- HERO -->
+  <section class="hero">
+    <div class="hero-grid" aria-hidden="true"></div>
+    <div class="container">
+      <div class="hero-inner">
+        <div>
+          <span class="pill"><span class="dot"></span>Production-ready &middot; Open source &middot; Built in Rust</span>
+          <h1>Bulk Telegram delivery,<br><span class="grad">done right.</span></h1>
+          <p class="lede">Submit <strong>one HTTP request</strong> with shared parameters and up to <strong>100,000 recipients</strong>. TGBulk persists it, then schedules every send under Telegram&rsquo;s rate limits &mdash; with fair multi-bot scheduling, automatic retries, live progress, and signed completion webhooks.</p>
+          <div class="hero-ctas">
+            <a class="btn btn-primary" href="#quickstart">
+              Get started &mdash; under a minute
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+            </a>
+            <a class="btn btn-ghost" href="https://github.com/thaqiif/telegram-bot-delivery-enhanced" target="_blank" rel="noopener">Read the docs</a>
+          </div>
+          <div class="hero-stats">
+            <div class="stat"><b><em>25</em> msg/s</b><span>steady-state scheduling per deployment</span></div>
+            <div class="stat"><b>100k</b><span>recipients in a single job</span></div>
+            <div class="stat"><b>&lt;1&nbsp;min</b><span>from curl to first delivery</span></div>
+            <div class="stat"><b>0</b><span>runtime dependencies on Debian</span></div>
+          </div>
+        </div>
+        <div class="term reveal">
+          <div class="term-head">
+            <span class="tdot r"></span><span class="tdot y"></span><span class="tdot g"></span>
+            <span class="term-title">install</span>
+          </div>
+          <div class="term-body">
+<span class="prompt">$</span> <span class="cmd">curl -fsSL https://raw.githubusercontent.com/thaqiif/telegram-bot-delivery-enhanced/main/deploy/install.sh <span class="hl">| sudo bash</span></span>
+<span class="dim">>> resolving latest release &hellip;</span> <span class="ok">v0.2.3</span>
+<span class="dim">>> downloading telegram-bulk-delivery-0.2.3-linux-aarch64</span>
+<span class="dim">>> verifying sha256 &hellip;</span> <span class="ok">OK</span>
+<span class="dim">>> installed /usr/local/bin/telegram-bulk-delivery</span>
+<span class="dim">>> service active &middot; /healthz &rarr;</span> <span class="ok">ok</span>
+<span class="prompt">$</span> <span class="cmd">curl -s http://127.0.0.1:8080/healthz</span>
+<span class="ok">ok</span><span class="blink"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TRUST STRIP -->
+  <div class="trust">
+    <div class="container trust-inner">
+      <span class="trust-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 12h12M12 6l6 6-6 6"/></svg>Rust</span>
+      <span class="trust-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M3.5 9h17M3.5 15h17M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"/></svg>SQLite</span>
+      <span class="trust-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M8 12h8M8 8h2M8 16h6"/></svg>axum / Tokio</span>
+      <span class="trust-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 22s8-3.5 8-10V5l-8-3-8 3v7c0 6.5 8 10 8 10z"/></svg>Hardened systemd</span>
+      <span class="trust-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 12v8H4v-8M8 8l4-4 4 4M12 4v12"/></svg>Zero runtime deps</span>
+      <span class="trust-item"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 17l-6.1 3.6 1.4-6.8L2.2 9.1l6.9-.8z"/></svg>Open source</span>
+    </div>
+  </div>
+
+  <!-- PROBLEM / SOLUTION -->
+  <section class="problem" id="why">
+    <div class="container">
+      <span class="eyebrow reveal">The problem</span>
+      <h2 class="reveal">Sending to 1,500 people <em>one by one</em> is a trap</h2>
+      <p class="lede reveal">Looping over recipients and awaiting each Telegram call sounds simple &mdash; until flood limits, retries, and rate math take over your codebase.</p>
+      <div class="problem-grid reveal">
+        <div class="card x">
+          <h3><span class="badge x">The naive way</span></h3>
+          <ul>
+            <li>Await every send &mdash; one slow chat blocks everyone</li>
+            <li>Reinvent rate limiting by hand, chat by chat</li>
+            <li>Drop failures silently or write your own retry ladder</li>
+            <li>Flood errors need manual <span class="mono">retry_after</span> handling</li>
+            <li>No visibility into what sent, failed, or is stuck</li>
+          </ul>
+        </div>
+        <div class="card ok">
+          <h3><span class="badge ok">With TGBulk</span></h3>
+          <ul>
+            <li>One request, 100k recipients &mdash; ack after it&rsquo;s durable</li>
+            <li>Hierarchical rate limiters pace global &rarr; bot &rarr; chat &rarr; group</li>
+            <li>Automatic retries with exponential backoff + jitter</li>
+            <li>Flood responses park that recipient and resume later</li>
+            <li>Live progress, ETA, rate, and paginated results in order</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- HOW IT WORKS -->
+  <section id="how">
+    <div class="container">
+      <span class="eyebrow reveal">How it works</span>
+      <h2 class="reveal">Four moving parts, one system</h2>
+      <div class="steps">
+        <div class="step reveal">
+          <div class="card">
+            <div class="step-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v12H8l-4 4V4z"/></svg></div>
+            <h3>Submit</h3>
+            <p><span class="mono">POST /bot&lt;token&gt;/sendMessage</span> with shared <span class="mono">parameters</span> and an ordered <span class="mono">recipients</span> array. It is written to SQLite and acknowledged before a single send happens.</p>
+          </div>
+        </div>
+        <div class="step reveal">
+          <div class="card">
+            <div class="step-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v6M12 16v6M2 12h6M16 12h6M5 5l4 4M15 15l4 4M19 5l-4 4M9 15l-4 4"/></svg></div>
+            <h3>Schedule</h3>
+            <p>A fair weighted scheduler (WDRR) plus hierarchical token buckets &mdash; global, per-bot, per-chat, per-group, per-method &mdash; decide exactly when each send may go out.</p>
+          </div>
+        </div>
+        <div class="step reveal">
+          <div class="card">
+            <div class="step-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 6l-5-4-5 4M17 18l-5 4-5-4"/></svg></div>
+            <h3>Deliver</h3>
+            <p>Concurrent sends per bot, paced per scope. A flood or transient error triggers backoff and re-queues <em>that recipient only</em> &mdash; other chats keep flowing.</p>
+          </div>
+        </div>
+        <div class="step reveal">
+          <div class="card">
+            <div class="step-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18M7 14l3-4 3 3 5-7"/></svg></div>
+            <h3>Observe</h3>
+            <p>Poll progress with exact counters, rates, and ETA; read results paginated in your original recipient order; get a signed webhook when the job completes.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FEATURES -->
+  <section id="features" style="background: color-mix(in srgb, var(--bg-soft) 50%, transparent);">
+    <div class="container">
+      <span class="eyebrow reveal">Features</span>
+      <h2 class="reveal">Everything async delivery should be</h2>
+      <div class="features-grid">
+        <div class="card feat reveal">
+          <div class="feat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg></div>
+          <h3>Async by design</h3>
+          <p>The request is acknowledged once it&rsquo;s durable. Delivery keeps running in the background, so a 100k-recipient job never blocks the caller.</p>
+        </div>
+        <div class="card feat reveal">
+          <div class="feat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="M6 9v12M18 9V6M9 6h9M15 18h3"/></svg></div>
+          <h3>Fair multi-bot scheduling</h3>
+          <p>Weighted Deficit Round Robin means N bots sharing the pipe each get a fair slice &mdash; no single bot can starve the others.</p>
+        </div>
+        <div class="card feat reveal">
+          <div class="feat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg></div>
+          <h3>Retries that behave</h3>
+          <p>Exponential backoff with full jitter. Flood (<span class="mono">429</span>) responses honor <span class="mono">retry_after</span> and burn no attempts; at-least-once or at-most-once is your choice.</p>
+        </div>
+        <div class="card feat reveal">
+          <div class="feat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V5M4 19h16M4 15l4-4 3 3 6-7 3 3"/></svg></div>
+          <h3>Progress &amp; ETA</h3>
+          <p>Exact counters (<span class="mono">queued / in_flight / delayed / succeeded / failed</span>), live rates, percent complete, and an ETA per job.</p>
+        </div>
+        <div class="card feat reveal">
+          <div class="feat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4M22 12a10 10 0 1 1-4-8"/></svg></div>
+          <h3>Stable result ordering</h3>
+          <p>Results come back paginated in your original recipient order &mdash; no dedup, no reordering, so reconciliation with your own records stays trivial.</p>
+        </div>
+        <div class="card feat reveal">
+          <div class="feat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 4L2 12l8 2 2 8 10-18z"/></svg></div>
+          <h3>Signed completion webhooks</h3>
+          <p>When a job finishes, a webhook fires with its full summary, HMAC-signed with your shared secret &mdash; so downstream systems can trust it without a database query.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- RATE LIMITS -->
+  <section id="limits">
+    <div class="container">
+      <span class="eyebrow reveal">Under the hood</span>
+      <h2 class="reveal">Rate limits, layered</h2>
+      <p class="lede reveal">Every send must clear each bucket in the hierarchy. The tightest bucket at any moment decides the pace.</p>
+      <div class="table-wrap reveal">
+        <table>
+          <thead><tr><th>Scope</th><th>Default limit</th><th>Why it exists</th></tr></thead>
+          <tbody>
+            <tr><td>Global</td><td><code>25 msg/s</code> &mdash; burst 50</td><td>Safety ceiling across every bot on the process</td></tr>
+            <tr><td>Per bot</td><td><code>your target</code> &mdash; max 25/s</td><td>Configured per bot via <span class="mono">target_msgs_per_sec</span></td></tr>
+            <tr><td>Per chat</td><td><code>1 msg/s</code> &mdash; burst 2</td><td>Telegram&rsquo;s practical per-chat pacing</td></tr>
+            <tr><td>Per group</td><td><code>1 per 3 s</code></td><td>Group chats are far more conservative</td></tr>
+            <tr><td>Per method</td><td><code>generous headroom</code></td><td>Prevents one method type from hogging a bot</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="note reveal">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v4h1"/></svg>
+        Telegram itself enforces its own per-chat and per-group limits. TGBulk&rsquo;s buckets are the safe floor: real-world throughput is bounded by <em>how many distinct chats</em> you are sending to, not just the global target. Our lab run against a fast target delivered <strong>1,500 / 1,500 recipients in ~61 seconds at 25 msg/s, 0 failures</strong>.
+      </p>
+    </div>
+  </section>
+
+  <!-- QUICKSTART -->
+  <section class="qs" id="quickstart">
+    <div class="container">
+      <span class="eyebrow reveal">Quick start</span>
+      <h2 class="reveal">Live in under a minute</h2>
+      <p class="lede reveal">Debian 13, x86_64 or arm64. The installer fetches the latest release, verifies its checksum, and configures a hardened service.</p>
+      <div class="qs-grid">
+        <div class="card qs-card reveal">
+          <h3><span class="num-badge">1</span> Install</h3>
+          <div class="code-block">
+            <button class="copy" data-copy="curl -fsSL https://raw.githubusercontent.com/thaqiif/telegram-bot-delivery-enhanced/main/deploy/install.sh | sudo bash">Copy</button>
+            <pre>$ <span class="ke">curl</span> -fsSL https://raw.githubusercontent.com/thaqiif/telegram-bot-delivery-enhanced/main/deploy/install.sh <span class="ke">|</span> sudo bash</pre>
+          </div>
+          <p class="step-caption">Pin a version: <span class="mono">TGBULK_VERSION=v0.2.3 curl -fsSL&hellip; | sudo bash</span></p>
+        </div>
+        <div class="card qs-card reveal">
+          <h3><span class="num-badge">2</span> Verify it&rsquo;s up</h3>
+          <div class="code-block">
+            <button class="copy" data-copy="curl -s http://127.0.0.1:8080/healthz">Copy</button>
+            <pre>$ <span class="ke">curl</span> -s http://127.0.0.1:8080/healthz
+<span class="st">ok</span></pre>
+          </div>
+          <p class="step-caption">Also: <span class="mono">/readyz</span> for readiness, <span class="mono">/metrics</span> for Prometheus.</p>
+        </div>
+        <div class="card qs-card reveal">
+          <h3><span class="num-badge">3</span> Set your bot token</h3>
+          <div class="code-block">
+            <button class="copy" data-copy='echo "BULK_MASTER_KEY=<already-filled>" > /etc/telegram-bulk-delivery/env'>Copy</button>
+            <pre><span class="cm"># /etc/telegram-bulk-delivery/env</span>
+<span class="ke">BULK_MASTER_KEY</span>=<span class="st">&lt;filled by install &mdash; back it up&gt;</span>
+<span class="ke">BULK_API_KEY</span>=<span class="st">your-long-random-key</span> <span class="cm"># OPTIONAL, recommended</span></pre>
+          </div>
+          <p class="step-caption">Bots are registered per token; <span class="mono">BULK_API_KEY</span> gates every <span class="mono">/bot</span> endpoint.</p>
+        </div>
+        <div class="card qs-card reveal">
+          <h3><span class="num-badge">4</span> Send your first bulk job</h3>
+          <div class="code-block">
+            <button class="copy" data-copy='curl -s -X POST "http://127.0.0.1:8080/bot${TOKEN}/sendMessage" -H "Authorization: Bearer ${BULK_API_KEY}" -H "Content-Type: application/json" -d "{\"parameters\":{\"text\":\"Hello from TGBulk!\"},\"recipients\":[{\"chat_id\":-1008001228039},{\"chat_id\":1008001967399,\"text\":\"Personal override\"}]}"'>Copy</button>
+            <pre>$ <span class="ke">curl</span> -s -X POST <span class="st">"http://127.0.0.1:8080/bot$TOKEN/sendMessage"</span> \
+    -H <span class="st">"Authorization: Bearer $BULK_API_KEY"</span> -H <span class="st">"Content-Type: application/json"</span> \
+    -d <span class="st">'{"parameters":{"text":"Hello from TGBulk!"},
+         "recipients":[
+           {"chat_id":-1008001228039},
+           {"chat_id":1008001967399,"text":"Personal override"}
+         ]
+       }'</span>
+<span class="cm"># → {"ok":true,"result":{"job_id":"01a06cbb-…","state":"queued","total":2,
+#    "status_url":"/bot$TOKEN/bulk/jobs/01a06cbb-…"}}</span></pre>
+          </div>
+          <p class="step-caption">Then poll <span class="mono">/bulk/jobs/&lt;id&gt;</span> for progress and <span class="mono">/results</span> for outcomes.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- API -->
+  <section id="api">
+    <div class="container">
+      <span class="eyebrow reveal">API</span>
+      <h2 class="reveal">One endpoint to rule your sends</h2>
+      <p class="lede reveal">Check a job&rsquo;s progress the same way you check a parcel.</p>
+      <div class="qs-grid" style="margin-top:40px">
+        <div class="card reveal">
+          <h3>Poll progress</h3>
+          <div class="code-block">
+            <button class="copy" data-copy='curl -s "http://127.0.0.1:8080/bot${TOKEN}/bulk/jobs/<JOB_ID>" -H "Authorization: Bearer ${BULK_API_KEY}"'>Copy</button>
+            <pre>$ <span class="ke">curl</span> -s <span class="st">"http://127.0.0.1:8080/bot$TOKEN/bulk/jobs/$JOB_ID"</span> | jq
+{
+  <span class="ke">"state"</span>: <span class="st">"running"</span>,
+  <span class="ke">"total"</span>: <span class="nu">1500</span>,
+  <span class="ke">"queued"</span>: <span class="nu">121</span>, <span class="ke">"in_flight"</span>: <span class="nu">4</span>,
+  <span class="ke">"succeeded"</span>: <span class="nu">1244</span>, <span class="ke">"failed"</span>: <span class="nu">0</span>,
+  <span class="ke">"rate"</span>: { <span class="ke">"instant_per_sec"</span>: <span class="nu">24.8</span>, <span class="ke">"window_per_sec"</span>: <span class="nu">25.1</span> },
+  <span class="ke">"percent_complete"</span>: <span class="nu">84.9</span>,
+  <span class="ke">"eta"</span>: { <span class="ke">"seconds"</span>: <span class="nu">14</span> }
+}</pre>
+          </div>
+        </div>
+        <div class="card reveal">
+          <h3>Read results, in your order</h3>
+          <div class="code-block">
+            <button class="copy" data-copy='curl -s "http://127.0.0.1:8080/bot${TOKEN}/bulk/jobs/<JOB_ID>/results?limit=100"'>Copy</button>
+            <pre>$ <span class="ke">curl</span> -s <span class="st">"http://127.0.0.1:8080/bot$TOKEN/bulk/jobs/$JOB_ID/results"</span> | jq
+{
+  <span class="ke">"results"</span>: [
+    { <span class="ke">"idx"</span>: <span class="nu">0</span>, <span class="ke">"status"</span>: <span class="st">"succeeded"</span>,
+      <span class="ke">"telegram_message_id"</span>: <span class="nu">5142</span> },
+    { <span class="ke">"idx"</span>: <span class="nu">1</span>, <span class="ke">"status"</span>: <span class="st">"succeeded"</span>,
+      <span class="ke">"telegram_message_id"</span>: <span class="nu">5143</span> }
+  ],
+  <span class="ke">"next_cursor"</span>: <span class="st">"…"</span>
+}</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- SECURITY -->
+  <section id="security" style="background: color-mix(in srgb, var(--bg-soft) 50%, transparent);">
+    <div class="container">
+      <span class="eyebrow reveal">Security &amp; operations</span>
+      <h2 class="reveal">Private by default, hardened by design</h2>
+      <div class="sec-grid">
+        <div class="sec-item reveal">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V6l8-4z"/><path d="M9 12l2 2 4-4"/></svg>
+          <div>
+            <h4>Tokens encrypted at rest</h4>
+            <p>Bot tokens are stored encrypted with a local master key; losing the key means re-registering bots &mdash; so it&rsquo;s backed up on install.</p>
+          </div>
+        </div>
+        <div class="sec-item reveal">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+          <div>
+            <h4>API-key gated</h4>
+            <p>Every <span class="mono">/bot</span> endpoint requires <span class="mono">BULK_API_KEY</span> (<span class="mono">Bearer</span> or <span class="mono">X-TGBulk-Key</span>), so only your systems can submit jobs.</p>
+          </div>
+        </div>
+        <div class="sec-item reveal">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2l-6 6M18 13l3-3-8-8-3 3M3 21l6-6M15 9l-6 6"/></svg>
+          <div>
+            <h4>SSRF-guarded outbound</h4>
+            <p>Custom Telegram API bases must explicitly opt into private targets (<span class="mono">allow_private_targets</span>, default <span class="mono">false</span>).</p>
+          </div>
+        </div>
+        <div class="sec-item reveal">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 20a10 10 0 1 1 10-10M10 20a10 10 0 0 0 10-10"/><path d="M14 10h6v6"/></svg>
+          <div>
+            <h4>Hardened systemd unit</h4>
+            <p><span class="mono">NoNewPrivileges</span>, <span class="mono">ProtectSystem=strict</span>, private /tmp, dedicated unprivileged user &mdash; a locked-down default install.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ -->
+  <section id="faq">
+    <div class="container">
+      <span class="eyebrow reveal">FAQ</span>
+      <h2 class="reveal">Questions, answered</h2>
+      <div class="faq reveal">
+        <details>
+          <summary>Can it really deliver 1,500 recipients in a minute?</summary>
+          <div class="a">With a target that keeps up &mdash; yes. In our lab run against a fast local Telegram target we delivered <strong>1,500 / 1,500 messages in ~61 seconds at 25 msg/s with zero failures</strong>. Against production Telegram, the per-chat (&asymp;1 msg/s) and per-group (&asymp;1 per 3 s) limits dominate, so real wall-clock throughput depends mostly on <em>how many distinct chats and groups</em> you are sending to &mdash; 1,500 users in 1,500 chats may take much longer than a minute. That is Telegram&rsquo;s rule, not the service&rsquo;s.</div>
+        </details>
+        <details>
+          <summary>How do I avoid hitting Telegram&rsquo;s flood limits?</summary>
+          <div class="a">TGBulk already paces below the common ceilings (&le;25 msg/s global, 1/s per chat, 1/3 s per group) and honors <span class="mono">retry_after</span> on <span class="mono">429</span> responses. Keep <span class="mono">target_msgs_per_sec</span> at or below 20 unless Telegram has explicitly raised your bot&rsquo;s limits.</div>
+        </details>
+        <details>
+          <summary>Which methods can I send in bulk?</summary>
+          <div class="a">Any committed bulk-capable method: <span class="mono">sendMessage</span>, <span class="mono">sendPhoto</span>, <span class="mono">sendMediaGroup</span>, <span class="mono">sendDocument</span>, <span class="mono">sendVideo</span> and friends (multipart for media). Non-bulk methods like <span class="mono">answerInlineQuery</span> are rejected up front with a clear error.</div>
+        </details>
+        <details>
+          <summary>Can I use a Telegram <em>test</em> token?</summary>
+          <div class="a">Yes. Test tokens only work at <span class="mono">https://api.telegram.org/bot&lt;token&gt;/test/&hellip;</span>, so set the bot&rsquo;s <span class="mono">telegram_api_base</span> to <span class="mono">https://api.telegram.org/bot{token}/test</span> &mdash; no proxy needed.</div>
+        </details>
+        <details>
+          <summary>Where does my data live?</summary>
+          <div class="a">On your own server, in a local SQLite database under <span class="mono">/var/lib/telegram-bulk-delivery</span>. No telemetry, no cloud, no third-party callbacks unless you configure a completion webhook.</div>
+        </details>
+        <details>
+          <summary>How is this different from using the Telegram Bot API directly?</summary>
+          <div class="a">The Bot API has no bulk or fan-out endpoint &mdash; you loop. TGBulk turns the loop into a service: durable queueing, hierarchical rate limiting tuned for real-world flood behavior, retries with proper backoff, progress/ETA, stable result ordering, and signed completion webhooks, all behind one REST API.</div>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="cta-band">
+    <div class="container">
+      <span class="eyebrow reveal">Ready?</span>
+      <h2 class="reveal">Ship your next campaign the boring way.<br><span class="grad">Boring is good.</span></h2>
+      <p class="reveal">One command installs it. One request sends them all. Your recipients won&rsquo;t know the difference &mdash; your infra will.</p>
+      <div class="reveal">
+        <a class="btn btn-primary" href="https://github.com/thaqiif/telegram-bot-delivery-enhanced" target="_blank" rel="noopener">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5C5.65.5.5 5.65.5 12c0 5.08 3.29 9.39 7.86 10.91.58.11.79-.25.79-.55v-2.15c-3.2.7-3.87-1.36-3.87-1.36-.52-1.33-1.28-1.68-1.28-1.68-1.04-.71.08-.7.08-.7 1.15.08 1.76 1.18 1.76 1.18 1.03 1.76 2.7 1.25 3.35.96.1-.75.4-1.25.72-1.54-2.55-.29-5.23-1.28-5.23-5.68 0-1.26.45-2.28 1.18-3.09-.12-.29-.51-1.46.11-3.05 0 0 .96-.31 3.15 1.18a10.9 10.9 0 0 1 5.74 0c2.18-1.49 3.14-1.18 3.14-1.18.63 1.59.24 2.76.12 3.05.73.81 1.18 1.83 1.18 3.09 0 4.41-2.69 5.39-5.25 5.67.41.36.78 1.06.78 2.14v3.18c0 .3.21.67.8.55A11.51 11.51 0 0 0 23.5 12C23.5 5.65 18.35.5 12 .5z"/></svg>
+          Star on GitHub
+        </a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="container">
+    <div class="foot-grid">
+      <div class="foot-brand">
+        <a class="brand" href="#top">
+          <svg width="28" height="28" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="url(#bgGradF)"/><defs><linearGradient id="bgGradF" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#1595D9"/><stop offset="1" stop-color="#3B68E8"/></linearGradient></defs><path d="M14 31.6 50 17.2c1.6-.6 3.2.5 2.9 2.2l-4.5 23.9c-.3 1.5-1.9 2.3-3.2 1.7l-8.6-5.6-5.2 5.1c-1 .8-2.4.2-2.6-1.1l-2-7.9L14.9 35c-1.5-.6-1.7-2.7-.9-3.4z" fill="#fff"/><circle cx="44" cy="22" r="3.4" fill="#FFD479"/></svg>
+          TGBulk
+        </a>
+        <p>Bulk Telegram Bot API delivery for people who&rsquo;d rather not write their own rate limiter. Rust, SQLite, and a single binary &mdash; no runtime dependencies.</p>
+      </div>
+      <div>
+        <h5>Product</h5>
+        <a href="#features">Features</a>
+        <a href="#how">How it works</a>
+        <a href="#limits">Rate limits</a>
+        <a href="#quickstart">Quick start</a>
+      </div>
+      <div>
+        <h5>Resources</h5>
+        <a href="https://github.com/thaqiif/telegram-bot-delivery-enhanced/blob/main/README.md" target="_blank" rel="noopener">README</a>
+        <a href="https://github.com/thaqiif/telegram-bot-delivery-enhanced/blob/main/docs/SECURITY.md" target="_blank" rel="noopener">Security</a>
+        <a href="https://github.com/thaqiif/telegram-bot-delivery-enhanced/releases" target="_blank" rel="noopener">Releases</a>
+        <a href="#faq">FAQ</a>
+      </div>
+      <div>
+        <h5>Project</h5>
+        <a href="https://github.com/thaqiif/telegram-bot-delivery-enhanced" target="_blank" rel="noopener">GitHub</a>
+        <a href="https://github.com/thaqiif/telegram-bot-delivery-enhanced/issues" target="_blank" rel="noopener">Issues</a>
+        <a href="https://github.com/thaqiif/telegram-bot-delivery-enhanced/releases/latest" target="_blank" rel="noopener">Latest release</a>
+        <a href="https://github.com/thaqiif/telegram-bot-delivery-enhanced/actions" target="_blank" rel="noopener">CI status</a>
+      </div>
+    </div>
+    <div class="foot-bottom">
+      <span>Built with Rust. No trackers, no telemetry, no cloud.</span>
+      <span class="status"><span class="dot"></span>Service: v0.2.3 &middot; Open source</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+  // theme
+  var root = document.documentElement;
+  var moon = document.getElementById("iconMoon");
+  var sun = document.getElementById("iconSun");
+  function applyTheme(t) {
+    root.setAttribute("data-theme", t);
+    if (moon && sun) {
+      moon.style.display = t === "dark" ? "block" : "none";
+      sun.style.display = t === "dark" ? "none" : "block";
+    }
+    try { localStorage.setItem("tgbulk-theme", t); } catch (e) {}
+  }
+  var saved = null;
+  try { saved = localStorage.getItem("tgbulk-theme"); } catch (e) {}
+  var prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+  applyTheme(saved || (prefersDark ? "dark" : "dark"));
+  var tt = document.getElementById("themeToggle");
+  if (tt) tt.addEventListener("click", function () {
+    applyTheme(root.getAttribute("data-theme") === "dark" ? "light" : "dark");
+  });
+
+  // mobile nav
+  var navToggle = document.getElementById("navToggle");
+  var navLinks = document.getElementById("navLinks");
+  if (navToggle && navLinks) {
+    navToggle.addEventListener("click", function () {
+      var open = navLinks.classList.toggle("open");
+      navToggle.setAttribute("aria-expanded", open ? "true" : "false");
+    });
+    navLinks.querySelectorAll("a").forEach(function (a) {
+      a.addEventListener("click", function () {
+        navLinks.classList.remove("open");
+        navToggle.setAttribute("aria-expanded", "false");
+      });
+    });
+  }
+
+  // copy buttons
+  function fallbackCopy(text, done) {
+    var ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.focus(); ta.select();
+    try { document.execCommand("copy"); done(); } catch (e) {}
+    document.body.removeChild(ta);
+  }
+  document.querySelectorAll(".copy").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var text = btn.getAttribute("data-copy") || "";
+      function done() {
+        var old = btn.textContent;
+        btn.textContent = "Copied!";
+        btn.classList.add("done");
+        setTimeout(function () {
+          btn.textContent = old;
+          btn.classList.remove("done");
+        }, 1600);
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done, function () { fallbackCopy(text, done); });
+      } else {
+        fallbackCopy(text, done);
+      }
+    });
+  });
+
+  // reveal on scroll
+  var io = "IntersectionObserver" in window
+    ? new IntersectionObserver(function (entries) {
+        entries.forEach(function (en) {
+          if (en.isIntersecting) { en.target.classList.add("in"); io.unobserve(en.target); }
+        });
+      }, { threshold: 0.12 })
+    : null;
+  document.querySelectorAll(".reveal").forEach(function (el) {
+    if (io) io.observe(el); else el.classList.add("in");
+  });
+
+  // year
+  var y = document.querySelectorAll("[data-year]");
+  y.forEach(function (el) { el.textContent = new Date().getFullYear(); });
+})();
+</script>
+</body>
+</html>
