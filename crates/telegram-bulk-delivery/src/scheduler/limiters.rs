@@ -131,6 +131,7 @@ impl Limiters {
             chat_capacity: 131072,
         }
     }
+    #[allow(clippy::too_many_arguments)]
     pub fn check_and_acquire(
         &mut self,
         bot: BotId,
@@ -138,6 +139,7 @@ impl Limiters {
         group: bool,
         method: &str,
         media: bool,
+        bot_rate: f64,
         now: u64,
     ) -> Result<Vec<Scope>, (Scope, u64)> {
         let mut scopes = vec![
@@ -157,7 +159,7 @@ impl Limiters {
                 Scope::Bot(b) => self
                     .bots
                     .entry(*b)
-                    .or_insert_with(|| Bucket::new(20., 10., now, 4))
+                    .or_insert_with(|| Bucket::new(bot_rate, 10., now, 4))
                     .check(now),
                 Scope::Chat(b, c) => {
                     if self.chats.len() >= self.chat_capacity
@@ -264,15 +266,15 @@ mod tests {
     fn same_chat_is_paced() {
         let mut l = Limiters::new(0);
         let s = l
-            .check_and_acquire(b(), Some("1"), false, "sendMessage", false, 0)
+            .check_and_acquire(b(), Some("1"), false, "sendMessage", false, 20.0, 0)
             .unwrap();
         l.release(&s);
         let s = l
-            .check_and_acquire(b(), Some("1"), false, "sendMessage", false, 0)
+            .check_and_acquire(b(), Some("1"), false, "sendMessage", false, 20.0, 0)
             .unwrap();
         l.release(&s);
         assert!(l
-            .check_and_acquire(b(), Some("1"), false, "sendMessage", false, 0)
+            .check_and_acquire(b(), Some("1"), false, "sendMessage", false, 20.0, 0)
             .is_err())
     }
     #[test]
@@ -281,7 +283,7 @@ mod tests {
         let s = Scope::Chat(b(), "x".into());
         l.pause(&s, 5000, 0);
         assert_eq!(
-            l.check_and_acquire(b(), Some("x"), false, "sendMessage", false, 1)
+            l.check_and_acquire(b(), Some("x"), false, "sendMessage", false, 20.0, 1)
                 .unwrap_err()
                 .1,
             5000

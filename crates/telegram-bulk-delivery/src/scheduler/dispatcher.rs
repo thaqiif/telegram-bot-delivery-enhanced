@@ -59,6 +59,21 @@ pub fn snapshot_policy_and_base(item: &DispatchItem) -> (AttemptPolicy, Option<S
     (policy, per_bot_base)
 }
 
+/// The bot's configured `target_msgs_per_sec` from the same policy snapshot,
+/// defaulting to 20.0 and hard-clamped to the 25/s ceiling enforced at submit
+/// time (http::api). The per-bot limiter bucket is created at this rate, so
+/// the configured target is actually honored by the scheduler rather than
+/// being decorative.
+pub fn snapshot_target_rate(item: &DispatchItem) -> f64 {
+    let config: serde_json::Value =
+        serde_json::from_str(&item.policy_snapshot_json).unwrap_or_else(|_| serde_json::json!({}));
+    config
+        .get("target_msgs_per_sec")
+        .and_then(serde_json::Value::as_f64)
+        .unwrap_or(20.0)
+        .clamp(0.1, 25.0)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

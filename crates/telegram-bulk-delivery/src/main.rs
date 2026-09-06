@@ -6,10 +6,10 @@ use telegram_bulk_delivery::{
     http::{api_router, resolve_api_url, router, ApiState, HealthState, Readiness},
     observe::{cgroup_memory_current_bytes, checkpoint_mode, rss_bytes},
     scheduler::{
-        dispatcher::{snapshot_policy_and_base, Dispatcher, LeasedCall},
+        dispatcher::{snapshot_policy_and_base, snapshot_target_rate, Dispatcher, LeasedCall},
         fairness::Wdrr,
         limiters::{Limiters, Scope},
-        RECONCILE_INTERVAL_SECS,
+        RECONCILE_INTERVAL_MS,
     },
     store::{DispatchItem, Store, WriterCmd},
     webhook::{WebhookDeliverer, WebhookSsrPolicy},
@@ -331,7 +331,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let mut wdrr = Wdrr::new();
             let monotonic_start = tokio::time::Instant::now();
             let mut limiters = Limiters::new(0);
-            let mut reconcile_ticker = tokio::time::interval(Duration::from_secs(RECONCILE_INTERVAL_SECS));
+            let mut reconcile_ticker = tokio::time::interval(Duration::from_millis(RECONCILE_INTERVAL_MS));
             let mut worker_counter: u16 = 0;
             let mut rx = shutdown_rx2;
             let mut shutdown_deadline = None;
@@ -473,7 +473,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                             .is_some_and(|k| matches!(k, "group" | "supergroup"));
                         let media = telegram_api_meta::is_multipart(actual_spec);
                         let now_millis = monotonic_start.elapsed().as_millis() as u64;
-                        match limiters.check_and_acquire(bot_id, chat_id.as_deref(), group, actual_spec.name, media, now_millis) {
+                        let target_rate = item
+                            .as_ref()
+                            .map(snapshot_target_rate)
+                            .unwrap_or(20.0);
+                        match limiters.check_and_acquire(bot_id, chat_id.as_deref(), group, actual_spec.name, media, target_rate, now_millis) {
                             Ok(scopes) => {
                                 let Some(item) = item else {
                                     // The lease could not be materialized (row vanished or a
@@ -584,7 +588,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                                     reason: "local_rate_limit".into(),
                                 });
                                 wdrr.complete(bot_id);
-                                if ms_until > 0 {
+                                // Sleep the whole bot only when the denied
+                                // scope is bot/global -- every recipient needs
+                                // those scopes, so pausing the bot is the only
+                                // way to stop the dispatch loop from spinning
+                                // through the same denial. A chat/group/method
+                                // denial is scoped: the recipient is re-leased
+                                // at not_before_unix and other chats must keep
+                                // flowing while it waits. Sleeping the bot here
+                                // would serialize every chat behind the slowest
+                                // one.
+                                let bot_wide = matches!(scope, Scope::Bot(_) | Scope::Global);
+                                if ms_until > 0 && bot_wide {
                                     // `until` is an absolute monotonic-millis deadline, the same
                                     // clock `wake_due` compares against.
                                     wdrr.sleep_until(bot_id, until);

@@ -300,7 +300,7 @@ fn chat_limiter_map_respects_capacity_and_future_pauses() {
     // The 131073rd paused chat should not drop existing paused entries
     let _scope = Scope::Chat(b, "overflow".into());
     let _result =
-        limiters.check_and_acquire(b, Some("overflow"), false, "sendMessage", false, 1000);
+        limiters.check_and_acquire(b, Some("overflow"), false, "sendMessage", false, 20.0, 1000);
     assert_eq!(limiters.chat_entries(), 131072);
 }
 
