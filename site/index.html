@@ -161,6 +161,9 @@ h2 { font-size: clamp(28px, 4.2vw, 40px); margin-bottom: 16px; }
 .term-title { margin-left: 8px; font-size: 12px; color: #7C8CA6; font-family: "JetBrains Mono", monospace; }
 .term-body { padding: 20px 22px; font-family: "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace; font-size: 12.8px; line-height: 1.75; color: #C7D3E6; overflow-x: auto; }
 .term-body .ln { display: block; }
+.icon-badge { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; margin-bottom: 16px; background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 26%, transparent); }
+.icon-badge svg { width: 20px; height: 20px; }
+
 .term-body .prompt { color: #4C86C6; }
 .term-body .ok { color: #3DDC97; }
 .term-body .dim { color: #64748E; }
@@ -198,16 +201,12 @@ h2 { font-size: clamp(28px, 4.2vw, 40px); margin-bottom: 16px; }
   background: color-mix(in srgb, var(--text) 6%, transparent); border: 1px solid var(--border);
   width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center;
 }
-.step-icon { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; margin-bottom: 16px; background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 26%, transparent); }
-.step-icon svg { width: 20px; height: 20px; }
 .step h3 { font-size: 16.5px; margin-bottom: 8px; }
 .step p { font-size: 13.5px; color: var(--muted); }
 
 /* features */
 .features-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 46px; }
 .feat { padding: 28px; }
-.feat-icon { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; margin-bottom: 16px; background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 26%, transparent); }
-.feat-icon svg { width: 20px; height: 20px; }
 .feat h3 { font-size: 16.5px; margin-bottom: 8px; }
 .feat p { font-size: 13.8px; color: var(--muted); }
 
@@ -284,7 +283,7 @@ footer { border-top: 1px solid var(--border); background: color-mix(in srgb, var
 @media (prefers-reduced-motion: reduce) {
   .reveal { opacity: 1; transform: none; transition: none; }
   .blink::after { animation: none; }
-  .card, .card:hover, .btn, .btn:hover, .step-icon, .num-badge, .nav-links a { transition: none; }
+  .card, .card:hover, .btn, .btn:hover, .icon-badge, .num-badge, .nav-links a { transition: none; }
   html { scroll-behavior: auto; }
 }
 
@@ -424,28 +423,28 @@ footer { border-top: 1px solid var(--border); background: color-mix(in srgb, var
       <div class="steps">
         <div class="step reveal">
           <div class="card">
-            <div class="step-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v12H8l-4 4V4z"/></svg></div>
+            <div class="icon-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v12H8l-4 4V4z"/></svg></div>
             <h3>Submit</h3>
             <p><span class="mono">POST /bot&lt;token&gt;/sendMessage</span> with shared <span class="mono">parameters</span> and an ordered <span class="mono">recipients</span> array. It is written to SQLite and acknowledged before a single send happens.</p>
           </div>
         </div>
         <div class="step reveal">
           <div class="card">
-            <div class="step-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v6M12 16v6M2 12h6M16 12h6M5 5l4 4M15 15l4 4M19 5l-4 4M9 15l-4 4"/></svg></div>
+            <div class="icon-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v6M12 16v6M2 12h6M16 12h6M5 5l4 4M15 15l4 4M19 5l-4 4M9 15l-4 4"/></svg></div>
             <h3>Schedule</h3>
             <p>A fair weighted scheduler (WDRR) plus hierarchical token buckets &mdash; global, per-bot, per-chat, per-group, per-method &mdash; decide exactly when each send may go out.</p>
           </div>
         </div>
         <div class="step reveal">
           <div class="card">
-            <div class="step-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 6l-5-4-5 4M17 18l-5 4-5-4"/></svg></div>
+            <div class="icon-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M17 6l-5-4-5 4M17 18l-5 4-5-4"/></svg></div>
             <h3>Deliver</h3>
             <p>Concurrent sends per bot, paced per scope. A flood or transient error triggers backoff and re-queues <em>that recipient only</em> &mdash; other chats keep flowing.</p>
           </div>
         </div>
         <div class="step reveal">
           <div class="card">
-            <div class="step-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18M7 14l3-4 3 3 5-7"/></svg></div>
+            <div class="icon-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18M7 14l3-4 3 3 5-7"/></svg></div>
             <h3>Observe</h3>
             <p>Poll progress with exact counters, rates, and ETA; read results paginated in your original recipient order; get a signed webhook when the job completes.</p>
           </div>
@@ -461,32 +460,32 @@ footer { border-top: 1px solid var(--border); background: color-mix(in srgb, var
       <h2 class="reveal">Paced, retried, observable</h2>
       <div class="features-grid">
         <div class="card feat reveal">
-          <div class="feat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg></div>
+          <div class="icon-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg></div>
           <h3>Async by design</h3>
           <p>The request is acknowledged once it&rsquo;s durable. Delivery keeps running in the background, so a 100k-recipient job never blocks the caller.</p>
         </div>
         <div class="card feat reveal">
-          <div class="feat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="M6 9v12M18 9V6M9 6h9M15 18h3"/></svg></div>
+          <div class="icon-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="18" cy="18" r="3"/><path d="M6 9v12M18 9V6M9 6h9M15 18h3"/></svg></div>
           <h3>Fair multi-bot scheduling</h3>
           <p>Weighted Deficit Round Robin means N bots sharing the pipe each get a fair slice &mdash; no single bot can starve the others.</p>
         </div>
         <div class="card feat reveal">
-          <div class="feat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg></div>
+          <div class="icon-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg></div>
           <h3>Retries that behave</h3>
           <p>Exponential backoff with full jitter. Flood (<span class="mono">429</span>) responses honor <span class="mono">retry_after</span> and burn no attempts; at-least-once, at-most-once, or method-aware is your choice.</p>
         </div>
         <div class="card feat reveal">
-          <div class="feat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V5M4 19h16M4 15l4-4 3 3 6-7 3 3"/></svg></div>
+          <div class="icon-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19V5M4 19h16M4 15l4-4 3 3 6-7 3 3"/></svg></div>
           <h3>Progress &amp; ETA</h3>
           <p>Exact counters (<span class="mono">queued / in_flight / delayed / succeeded / failed / ambiguous</span>), live rates, percent complete, and an ETA per job.</p>
         </div>
         <div class="card feat reveal">
-          <div class="feat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4M22 12a10 10 0 1 1-4-8"/></svg></div>
+          <div class="icon-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4M22 12a10 10 0 1 1-4-8"/></svg></div>
           <h3>Stable result ordering</h3>
           <p>Results come back paginated in your original recipient order &mdash; no dedup, no reordering, so reconciliation with your own records stays trivial.</p>
         </div>
         <div class="card feat reveal">
-          <div class="feat-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 4L2 12l8 2 2 8 10-18z"/></svg></div>
+          <div class="icon-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 4L2 12l8 2 2 8 10-18z"/></svg></div>
           <h3>Signed completion webhooks</h3>
           <p>When a job finishes, a webhook fires with its full summary, HMAC-signed with your shared secret &mdash; so downstream systems can trust it without a database query.</p>
         </div>
