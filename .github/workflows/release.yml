@@ -8,10 +8,11 @@ on:
 
 permissions:
   contents: write
-  # Publish the private container image to ghcr.io. GITHUB_TOKEN can do this for
-  # packages linked to this repo; no PAT/secret needed. New GHCR packages default
-  # to PRIVATE even for a public repo — keep it that way (making it public is
-  # irreversible).
+  # Publish the container image to ghcr.io using GITHUB_TOKEN (no PAT/secret
+  # needed). Note: an image pushed from a PUBLIC repo is PUBLIC by default, and
+  # the baked image carries no secrets (credentials come only from env at
+  # runtime), so public visibility here is intentional — see README "Container
+  # image (ghcr.io)".
   packages: write
 
 jobs:
@@ -59,7 +60,7 @@ jobs:
           CARGO_BUILD_JOBS: "2"
         run: cargo test --workspace --locked -- --test-threads=1
 
-      # --- Private container image (ghcr.io) -------------------------------
+      # --- Container image (ghcr.io) ---------------------------------------
       #
       # The image is runtime-only: it copies the binary compiled above, so it
       # reuses both the native x86_64 and the cross-built aarch64 artifact rather
@@ -67,9 +68,10 @@ jobs:
       # QEMU for many minutes). Each platform gets a dedicated, tiny build
       # context; both are pushed to the same <tag>, forming a multi-arch image.
       #
-      # Visibility: a newly published GHCR package is PRIVATE by default even for
-      # a public repo (package visibility is independent of repository
-      # visibility), and making it public is irreversible — so leave it as-is.
+      # Visibility: an image pushed from a PUBLIC repo is PUBLIC by default (repo
+      # and package visibilities are effectively coupled for GHCR pushes via
+      # GITHUB_TOKEN, contrary to the generic GitHub Packages docs). This is
+      # intentional — the image carries no secrets, so public pull needs no auth.
       - name: Compute container version
         shell: bash
         run: |

@@ -71,7 +71,8 @@ bot tokens travel in the URL path.
 
 ### Download a release
 
-The repo is private, so download with the GitHub CLI (`gh auth login` once):
+The repository is public, so release assets are downloadable without
+authentication (the GitHub CLI is the easiest path, `gh auth login` once):
 
 ```sh
 gh release download -R thaqiif/telegram-bot-delivery-enhanced \
@@ -340,25 +341,26 @@ Release artifacts are **built and published entirely by CI on a GitHub-hosted
 runner** — no self-hosted runner needed. The [`release`](.github/workflows/release.yml)
 workflow builds **both** `x86_64` (natively) and `aarch64` (cross-compiled via
 `gcc-aarch64-linux-gnu`) on a single `ubuntu-24.04` runner, runs the capped test
-suite, publishes a GitHub Release, **and** pushes a multi-arch private container
-image to `ghcr.io` ([`Dockerfile`](Dockerfile)) tagged with the release version
-and `latest`.
+suite, publishes a GitHub Release, **and** pushes a multi-arch container image
+to `ghcr.io` ([`Dockerfile`](Dockerfile)) tagged with the release version and
+`latest`.
 
-### Private container image (ghcr.io)
+### Container image (ghcr.io)
 
-`ghcr.io/thaqiif/telegram-bulk-delivery` is a **private** image, even though the
-source repo is public — GHCR package visibility is separate from repository
-visibility, and new packages default to private. Pulling it therefore requires
-authentication: a classic PAT with `read:packages` (or a fine-grained token with
-**Packages: Read** on this repo):
+`ghcr.io/thaqiif/telegram-bulk-delivery` is a **public** image: because the
+source repo is public, the image pushed by CI is public too (GHCR visibility is
+coupled to the repo for `GITHUB_TOKEN` pushes — the generic "new packages are
+private by default" guidance does not hold here). That is deliberate: the baked
+image contains **no secrets** (the master key, API key, and bot tokens arrive
+only through env/config at runtime), so public visibility costs nothing and
+means **no `docker login` is needed** to pull:
 
 ```sh
-docker login ghcr.io --username thaqiif            # password: the PAT
 docker pull ghcr.io/thaqiif/telegram-bulk-delivery:v0.1.0
 ```
 
-> ⚠️ **Never change the package visibility to Public on the GHCR package page.**
-> Making a package public is irreversible — it cannot be made private again.
+> If you ever need the image private again, make the repository private first —
+> that is the only way GHCR keeps it private.
 
 Run it (both `linux/amd64` and `linux/arm64` are published under one tag):
 
