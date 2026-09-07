@@ -340,7 +340,63 @@ Release artifacts are **built and published entirely by CI on a GitHub-hosted
 runner** — no self-hosted runner needed. The [`release`](.github/workflows/release.yml)
 workflow builds **both** `x86_64` (natively) and `aarch64` (cross-compiled via
 `gcc-aarch64-linux-gnu`) on a single `ubuntu-24.04` runner, runs the capped test
-suite, and publishes a GitHub Release.
+suite, publishes a GitHub Release, **and** pushes a multi-arch private container
+image to `ghcr.io` ([`Dockerfile`](Dockerfile)) tagged with the release version
+and `latest`.
+
+### Private container image (ghcr.io)
+
+`ghcr.io/thaqiif/telegram-bulk-delivery` is a **private** image, even though the
+source repo is public — GHCR package visibility is separate from repository
+visibility, and new packages default to private. Pulling it therefore requires
+authentication: a classic PAT with `read:packages` (or a fine-grained token with
+**Packages: Read** on this repo):
+
+```sh
+docker login ghcr.io --username thaqiif            # password: the PAT
+docker pull ghcr.io/thaqiif/telegram-bulk-delivery:v0.1.0
+```
+
+> ⚠️ **Never change the package visibility to Public on the GHCR package page.**
+> Making a package public is irreversible — it cannot be made private again.
+
+Run it (both `linux/amd64` and `linux/arm64` are published under one tag):
+
+```sh
+# One-time: create a data volume and a master key (base64 of exactly 32 bytes).
+docker volume create tgbulk-data
+export BULK_MASTER_KEY="$(openssl rand -base64 32)"
+
+docker run -d --name tgbulk \
+  --restart unless-stopped \
+  --read-only \
+  --cap-drop=ALL \
+  --security-opt no-new-privileges:true \
+  -e BULK_MASTER_KEY="$BULK_MASTER_KEY" \
+  -e BULK_API_KEY="<optional-api-gate>" \
+  -e TELEGRAM_API_BASE="https://api.telegram.org" \
+  -v tgbulk-data:/var/lib/telegram-bulk-delivery \
+  -p 8080:8080 \
+  ghcr.io/thaqiif/telegram-bulk-delivery:v0.1.0
+
+curl -s http://127.0.0.1:8080/healthz   # -> ok
+```
+
+The image runs a hardened non-root profile: UID `10001` (`tgbulk`), read-only
+rootfs, all capabilities dropped, no new privileges. The working directory is
+the data volume — SQLite, file blobs, and `tmp/` all live there. It uses the
+default operator config baked in at `operator.defaults.toml`; to customize
+limits/SSRF/bind port, mount your own config (see [Configuration
+reference](#configuration-reference)):
+
+```sh
+-v "$PWD/config.toml":/etc/telegram-bulk-delivery/config.toml:ro
+```
+
+A host bind-mount data dir must be owned by UID `10001`
+(`sudo chown -R 10001:10001 /var/lib/tgbulk`) — a Docker named volume is seeded
+with the right ownership automatically. The image is built by the same `v*` tag
+release; a new release = a new `vX.Y.Z` image tag (plus `latest`).
 
 ### Cut a release
 

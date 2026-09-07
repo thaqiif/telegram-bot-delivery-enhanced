@@ -1,0 +1,13 @@
+# Keeps `docker build -f Dockerfile .` contexts small for local builds.
+# (CI builds with a dedicated context dir per platform — see release.yml.)
+.git
+.omc
+.claude
+target
+core.*
+*.db
+*.db-shm
+*.db-wal
+.data
+.env
+ctx
