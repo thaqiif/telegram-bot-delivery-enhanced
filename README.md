@@ -6,6 +6,8 @@ One binary. One config file. One env var. SQLite and TLS roots are compiled in �
 
 > 🌐 **Landing page:** https://thaqiif.github.io/telegram-bot-delivery-enhanced/
 
+**Calling this from another bot?** Do not vendor, fork, or host this repo inside the consumer. Point your HTTP client at a running instance and follow [Use it from another project](#use-it-from-another-project). The full client contract is [`docs/CLIENT.md`](docs/CLIENT.md).
+
 ---
 
 ## Deploy
@@ -153,14 +155,36 @@ Then uncomment `TELEGRAM_API_BASE=http://127.0.0.1:8443` in `/etc/telegram-bulk-
 
 ---
 
-## Using the API
+## Use it from another project
+
+This service is an HTTP fan-out front for the Telegram Bot API. A consumer (your bot, Worker, or backend) submits **one** bulk job; this process delivers it under Telegram's rate limits. You do **not** copy this codebase into the consumer.
+
+The same facts live in [`docs/CLIENT.md`](docs/CLIENT.md) — keep that file and this section in sync. Agents integrating a consumer should read that contract rather than this repo's deploy/Docker/systemd docs.
+
+It is **not** a transparent Telegram proxy. The path looks like Telegram (`/bot<TOKEN>/<method>`); the JSON body and the meaning of HTTP 200 do not.
+
+| You used to | You do now |
+| --- | --- |
+| `POST https://api.telegram.org/bot<TOKEN>/sendMessage` with `{chat_id, text}` per recipient | One `POST {TGBULK_BASE}/bot<TOKEN>/sendMessage` with `{parameters, recipients}` |
+| Loop / `Promise.all` of `sendMessage`, plus your own sleep / 25-at-a-time batching | Submit once; the service queues and paces. Do not add a second rate limiter |
+| Response `result` is a Telegram `Message` (`message_id` now) | HTTP 200 means the **job is durable**. Poll for delivery; `message_id` is on `/results` |
+
+Keep your own Telegram client for **1:1** traffic (command replies, callback answers, edits, deletes, inbound webhooks). Use this API for **fan-out** (reminders, timetables, broadcasts).
+
+### Auth and base URL
+
+- `TGBULK_BASE` is the running service (`http://127.0.0.1:8080` locally, or your TLS proxy). Do not hardcode it in application code.
+- Bot token stays in the path, same as Telegram.
+- If `BULK_API_KEY` is set on the service, every `/bot...` call needs `Authorization: Bearer <key>` **or** `X-TGBulk-Key: <key>`. `/healthz`, `/readyz`, and `/metrics` stay open.
+- Never log the token-bearing path. Never commit the token or the API key.
+- Dual-sending the same blast to both this API and `api.telegram.org` duplicates it. Only fall back to Telegram directly if `/readyz` is not ready.
 
 ### Submit one bulk job
 
 ```sh
 TOKEN="123456:ABC-your-bot-token"
 curl -s -X POST "http://127.0.0.1:8080/bot${TOKEN}/sendMessage" \
-  -H 'Content-Type: application/json' \
+  -H "Authorization: Bearer ${BULK_API_KEY}" -H 'Content-Type: application/json' \
   -d '{
     "parameters": {"text": "Hello from bulk delivery!"},
     "recipients": [
@@ -179,6 +203,26 @@ Response (HTTP 200 only after the job is durable):
 {"ok":true,"result":{"job_id":"01a06cbb-…","state":"queued","total":3,
  "status_url":"/bot<token>/bulk/jobs/01a06cbb-…","accepted_at_unix":1788530612}}
 ```
+
+TypeScript sketch (auth header required when `BULK_API_KEY` is set):
+
+```ts
+const res = await fetch(`${TGBULK_BASE}/bot${token}/sendMessage`, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${BULK_API_KEY}`,
+  },
+  body: JSON.stringify({
+    parameters: { text: sharedText, parse_mode: "HTML" },
+    recipients: chats.map((c) => ({ chat_id: c.id })),
+  }),
+});
+const { ok, result } = await res.json();
+// result.job_id / result.status_url — not a Telegram Message
+```
+
+There is no submit-idempotency key: retrying a timed-out POST can create a second fan-out. Prefer one POST, then poll.
 
 ### Poll progress
 
@@ -421,6 +465,7 @@ Ubuntu 24.04's glibc (2.39), which runs on the Debian 13 deployment target
 
 ## Security & operations notes
 
+- **Calling the API from another app:** [`docs/CLIENT.md`](docs/CLIENT.md) (envelope, auth, polling, what not to treat as a Telegram proxy).
 - **Back up the master key and the data directory together.** The durability boundary is one local disk; this is not replicated storage ([`docs/OPERATIONS.md`](docs/OPERATIONS.md) covers backup, WAL/checkpoint/retention, kill/reboot drills).
 - Bot tokens are secrets: TLS at the proxy, never log token-bearing paths.
 - SQLite, the DB, and file blobs must stay on the same filesystem.
