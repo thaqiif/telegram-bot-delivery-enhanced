@@ -62,7 +62,10 @@ esac
 [ "$(uname -s)" = "Linux" ] || { echo "error: only Linux release binaries are published"; exit 1; }
 
 WORK_DIR=""
-cleanup() { [ -n "$WORK_DIR" ] && rm -rf "$WORK_DIR"; }
+# Must always succeed: as the EXIT trap it sets the script's exit status, and in
+# release-tarball mode WORK_DIR is empty (a bare `[ -n ] && rm` returned 1 and
+# turned every successful local install into a failure).
+cleanup() { if [ -n "$WORK_DIR" ]; then rm -rf "$WORK_DIR"; fi; }
 trap cleanup EXIT
 
 if [ -z "$LOCAL_BIN" ]; then
@@ -118,10 +121,15 @@ chmod 0400 "${CONFIG_DIR}/master.key"
 if [ ! -s "${CONFIG_DIR}/env" ]; then
     cat > "${CONFIG_DIR}/env" <<'EOF'
 BULK_MASTER_KEY=<filled-by-install>
+# Gates every /bot... endpoint (Authorization: Bearer <key> or X-TGBulk-Key).
+# Generated at install so a fresh server is never an open relay; give it to clients.
+BULK_API_KEY=<api-key-filled-by-install>
 # Point at a Telegram test-environment rewrite proxy if you use a test bot:
 #TELEGRAM_API_BASE=http://127.0.0.1:8443
 EOF
     sed -i "s|<filled-by-install>|$(cat "${CONFIG_DIR}/master.key")|" "${CONFIG_DIR}/env"
+    sed -i "s|<api-key-filled-by-install>|$(openssl rand -hex 32)|" "${CONFIG_DIR}/env"
+    echo ">> generated BULK_API_KEY in ${CONFIG_DIR}/env"
     chmod 0640 "${CONFIG_DIR}/env"
     chown "${SERVICE_USER}:${SERVICE_USER}" "${CONFIG_DIR}/env"
 else
