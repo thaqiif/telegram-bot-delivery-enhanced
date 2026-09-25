@@ -49,6 +49,7 @@ const stats = {
   migrated: 0,
   droppedAcks: 0,
   peakPerSec: {} as Record<string, number>,
+  acceptedByToken: {} as Record<string, number>, // fairness evidence for soak runs
   firstAcceptAt: 0,
   lastAcceptAt: 0,
 };
@@ -81,7 +82,7 @@ Bun.serve({
     if (u.pathname === "/_stats") return Response.json(stats);
     if (u.pathname === "/_reset") {
       tokenWindow.clear(); chatLast.clear(); groupWindow.clear(); attempts.clear(); delivered.clear();
-      Object.assign(stats, { requests: 0, accepted: 0, duplicates: 0, flood429: 0, blocked403: 0, notFound400: 0, transient500: 0, migrated: 0, droppedAcks: 0, peakPerSec: {}, firstAcceptAt: 0, lastAcceptAt: 0 });
+      Object.assign(stats, { requests: 0, accepted: 0, duplicates: 0, flood429: 0, blocked403: 0, notFound400: 0, transient500: 0, migrated: 0, droppedAcks: 0, peakPerSec: {}, acceptedByToken: {}, firstAcceptAt: 0, lastAcceptAt: 0 });
       return Response.json({ ok: true });
     }
     const m = /^\/bot([^/]+)\/([A-Za-z]+)$/.exec(u.pathname);
@@ -126,6 +127,7 @@ Bun.serve({
     tokenWindow.set(token, tw);
     if (Number(chat) > 0) chatLast.set(`${token}|${chat}`, t);
     stats.peakPerSec[token] = Math.max(stats.peakPerSec[token] ?? 0, tw.length);
+    stats.acceptedByToken[token] = (stats.acceptedByToken[token] ?? 0) + 1;
     stats.accepted++;
     stats.firstAcceptAt ||= t;
     stats.lastAcceptAt = t;
