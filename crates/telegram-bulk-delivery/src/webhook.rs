@@ -114,9 +114,46 @@ pub struct WebhookSsrPolicy {
 }
 
 impl WebhookSsrPolicy {
+    /// Compare as ADDRESSES: `Url::host_str` yields "[::1]" and compressed
+    /// forms, the config may say "::1" or "0:0:…:1" — equal IPs must match.
     fn is_trusted(&self, host: &str) -> bool {
-        let h = normalize_host(host);
-        self.trusted_hosts.iter().any(|t| normalize_host(t) == h)
+        match parse_ip_literal(host) {
+            Some(ip) => self.trusted_hosts.iter().any(|t| parse_ip_literal(t) == Some(ip)),
+            None => {
+                let h = normalize_host(host);
+                self.trusted_hosts.iter().any(|t| normalize_host(t) == h)
+            }
+        }
+    }
+}
+
+/// Addresses an operator may NEVER mark as a trusted webhook host: trusting
+/// skips all SSRF address checks, so cloud metadata endpoints, link-local,
+/// unspecified, 0.0.0.0/8 and multicast are refused outright (IPv4-mapped
+/// IPv6 is judged by its embedded IPv4). Loopback/private stay allowed —
+/// trusting an on-host or LAN receiver is the purpose of the setting.
+pub fn never_trustable(ip: IpAddr) -> bool {
+    let ip = match ip {
+        IpAddr::V6(v6) => v6.to_ipv4_mapped().map(IpAddr::V4).unwrap_or(IpAddr::V6(v6)),
+        v4 => v4,
+    };
+    match ip {
+        IpAddr::V4(v4) => {
+            let o = v4.octets();
+            o[0] == 0 // 0.0.0.0/8 incl. unspecified
+                || (o[0] == 169 && o[1] == 254) // link-local incl. 169.254.169.254 (AWS/GCP/…)
+                || o[0] >= 224 // multicast + reserved + broadcast
+                || o == [100, 100, 100, 200] // Alibaba Cloud metadata
+                || o == [168, 63, 129, 16] // Azure WireServer
+        }
+        IpAddr::V6(v6) => {
+            let s = v6.segments();
+            s == [0; 8] // ::
+                || (s[0] & 0xffc0) == 0xfe80 // link-local fe80::/10
+                || (s[0] & 0xffc0) == 0xfec0 // deprecated site-local fec0::/10
+                || (s[0] & 0xff00) == 0xff00 // multicast
+                || v6 == Ipv6Addr::new(0xfd00, 0xec2, 0, 0, 0, 0, 0, 0x254) // AWS IMDS v6
+        }
     }
 }
 
@@ -155,7 +192,7 @@ pub fn denied_name(host0: &str) -> bool {
 
 /// Parse a host into an IP if it is an address literal (including 32-bit
 /// decimal `2130706433` and hex `0x7f000001` forms) or `[v6]` bracket form.
-fn parse_ip_literal(host0: &str) -> Option<IpAddr> {
+pub(crate) fn parse_ip_literal(host0: &str) -> Option<IpAddr> {
     let host = normalize_host(host0);
     if let Ok(ip) = IpAddr::from_str(&host) {
         return Some(ip);
@@ -961,6 +998,16 @@ mod tests {
         assert!(!p.is_trusted("example.com"));
         let u = Url::parse("http://example.com/hook").unwrap();
         assert_eq!(u.scheme(), "http");
+        // trusted entries match by ADDRESS, whatever the spelling / brackets
+        let t = WebhookSsrPolicy { allow_insecure_http: true, trusted_hosts: vec!["::1".into(), "0:0:0:0:0:0:0:5".into(), "127.0.0.1".into()] };
+        assert!(t.is_trusted("[::1]"));
+        assert!(t.is_trusted("::1"));
+        assert!(t.is_trusted("[::5]"));
+        assert!(t.is_trusted("127.0.0.1"));
+        assert!(!t.is_trusted("[::2]"));
+        assert!(!t.is_trusted("127.0.0.2"));
+        let host = url::Url::parse("http://[::1]:8090/hook").unwrap();
+        assert!(t.is_trusted(host.host_str().unwrap()));
         // http is only allowed when allow_insecure_http && trusted
         assert!(!(p.allow_insecure_http && p.is_trusted("example.com")));
     }

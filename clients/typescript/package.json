@@ -1,0 +1,17 @@
+{
+  "name": "@tgbulk/client",
+  "version": "0.1.0",
+  "description": "Typed client for telegram-bulk-delivery (Workers/Bun/Node, zero deps)",
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "test": "bun test",
+    "typecheck": "tsc --noEmit"
+  },
+  "license": "MIT",
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5.5.0"
+  }
+}

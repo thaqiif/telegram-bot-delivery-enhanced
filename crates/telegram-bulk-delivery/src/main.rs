@@ -327,10 +327,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let dispatch_epoch = process_epoch.clone();
         let dispatch_keys = keys.clone();
         let max_dispatch_inflight = config.max_telegram_inflight;
+        let global_msgs_per_sec = config.global_msgs_per_sec;
         let dispatch = tokio::spawn(async move {
             let mut wdrr = Wdrr::new();
             let monotonic_start = tokio::time::Instant::now();
-            let mut limiters = Limiters::new(0);
+            let mut limiters = Limiters::with_global_rate(0, global_msgs_per_sec);
             let mut reconcile_ticker = tokio::time::interval(Duration::from_millis(RECONCILE_INTERVAL_MS));
             let mut worker_counter: u16 = 0;
             let mut rx = shutdown_rx2;
@@ -627,7 +628,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             store.clone(),
             keys.clone(),
             config.max_webhook_inflight,
-            WebhookSsrPolicy::default(),
+            WebhookSsrPolicy {
+                allow_insecure_http: config.webhook_allow_insecure_http,
+                trusted_hosts: config.webhook_trusted_hosts.clone(),
+            },
         )?;
         let webhook_task = tokio::spawn(async move { deliverer.run(shutdown_rx3).await });
 

@@ -20,3 +20,14 @@ retention_sweep_secs = 30
 retention_batch = 500
 # SSRF default-safe: leave false unless you point bots at a private/local bot server.
 allow_private_targets = false
+# Completion webhooks are HTTPS-to-public-hosts only by default. To deliver to a
+# receiver on a trusted local network (staging), list its host(s) and, if it has
+# no TLS, allow http for those hosts only:
+# webhook_trusted_hosts = ["127.0.0.1"]
+# webhook_allow_insecure_http = true
+# Process-wide send rate across ALL bots (msg/s). Telegram limits each bot to
+# ~30/s; each bot here is capped at <=25/s. Raise for several busy bots on one
+# instance (e.g. 3 bots -> 75). ~5% of one vCPU per 25/s measured on 1 vCPU.
+# Real ceilings beyond it: disk fsync (~3 durable writes per message) and a fixed
+# 32 concurrent sends instance-wide (~100-300 msg/s at typical Telegram latency).
+# global_msgs_per_sec = 25.0

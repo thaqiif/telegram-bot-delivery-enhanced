@@ -79,10 +79,38 @@ If the consumer must persist Telegram `message_id`s, wait until the job is termi
 | `target_msgs_per_sec` | Operator target; Telegram per-chat / group flood still bind |
 | `ambiguity_policy` | `at_least_once` (default, may duplicate on ambiguous ack), `at_most_once` (may drop), `method_aware` |
 | `job_deadline_secs` | |
-| `completion_webhook_url` | HTTPS-only by default; HMAC-signed pages, at-least-once; persist idempotency key before side effects |
+| `completion_webhook_url` | HTTPS to public hosts only by default; HMAC-signed pages, at-least-once; persist idempotency key before side effects. **The first call that sets it returns a server-generated `webhook_secret`, once** (see below) |
 | `telegram_api_base` | Per-bot upstream override. Private/loopback hosts 400 unless the operator set `allow_private_targets = true` |
 
 Snapshot semantics: `telegram_api_base` is snapshotted per job. Changing it does not rewrite already-queued recipients.
+
+### Verifying completion webhooks
+
+- The service **generates** the secret. A `webhook_secret` sent in the request is ignored.
+- The **first** `setBulkDeliveryConfig` that sets `completion_webhook_url` returns `webhook_secret`
+  in its result: base64url (no padding) of 32 random bytes. It is never returned again, so store it.
+- Each page is POSTed with `X-Bulk-Signature: v1=<hex>`, where `<hex>` is
+  **HMAC-SHA256 keyed with the 32 raw bytes** (base64url-decode the secret first; the string itself
+  is not the key) over the **exact raw body bytes**.
+- Also sent: `X-Bulk-Event-Id` (the idempotency key; persist it before side effects),
+  `X-Bulk-Job-Id`, `X-Bulk-Page`, `X-Bulk-Page-Count`, `X-Bulk-Attempt`.
+- The TypeScript client (`clients/typescript`) implements this as `verifyWebhookSignature()`.
+
+Operator options (config TOML) for a receiver on a trusted local network, which is otherwise
+refused by the SSRF policy:
+
+```toml
+webhook_trusted_hosts = ["10.0.0.5"]   # exempt from private-address checks
+webhook_allow_insecure_http = true     # http allowed ONLY to the trusted hosts
+```
+
+## TypeScript client
+
+`clients/typescript` (`@tgbulk/client`) is zero-dependency and runs in Workers, Bun and Node:
+`submit` (never auto-retried; a network failure raises `SubmitUnknownError`), `job`,
+`waitForTerminal` (with backoff), `results` (async iterator over cursor pages), `ready`,
+`getConfig`/`setConfig`, and `verifyWebhookSignature`. Its contract test
+(`bun test` in that folder) runs against the real binary and `scripts/faketg`.
 
 ## Semantics
 
