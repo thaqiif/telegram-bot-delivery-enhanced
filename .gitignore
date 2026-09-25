@@ -9,3 +9,5 @@
 /core.*
 /.omc/
 /.claude/
+node_modules/
+.omc/

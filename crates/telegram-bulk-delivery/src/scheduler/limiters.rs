@@ -121,9 +121,19 @@ pub struct Limiters {
 impl Limiters {
     pub const IDLE_BUCKET_TTL_MS: u64 = 60 * 60 * 1000;
 
+    /// Default process-wide rate (msg/s across ALL bots) when not configured.
+    pub const DEFAULT_GLOBAL_PER_SEC: f64 = 25.;
+
     pub fn new(now: u64) -> Self {
+        Self::with_global_rate(now, Self::DEFAULT_GLOBAL_PER_SEC)
+    }
+
+    /// `global_per_sec` caps the whole instance (all bots together); each bot
+    /// still has its own ≤25/s bucket, and Telegram's limits are per bot, so an
+    /// instance serving N bots may need up to N×25. Burst = 2× the rate.
+    pub fn with_global_rate(now: u64, global_per_sec: f64) -> Self {
         Self {
-            global: Bucket::new(25., 50., now, 32),
+            global: Bucket::new(global_per_sec, global_per_sec * 2., now, 32),
             bots: HashMap::new(),
             chats: HashMap::with_capacity(131072),
             groups: HashMap::new(),

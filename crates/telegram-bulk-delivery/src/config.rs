@@ -41,6 +41,27 @@ pub struct OperatorConfig {
     /// targets a non-public (loopback/private/link-local/metadata) host is
     /// refused. Set true to allow pointing bots at a private/local bot server.
     pub allow_private_targets: bool,
+    /// Completion-webhook SSRF opt-in (default off). When true, plain `http`
+    /// webhooks are allowed — but ONLY to hosts listed in
+    /// `webhook_trusted_hosts`. Everything else stays HTTPS-to-public-only.
+    /// Intended for a receiver on the same trusted host/network (staging).
+    #[serde(default)]
+    pub webhook_allow_insecure_http: bool,
+    /// IP literals the webhook deliverer trusts. A trusted host is exempt from
+    /// ALL SSRF address checks (private/loopback, denied names, DNS pinning) and
+    /// may use http when allowed above — hence IP literals only (validated),
+    /// never link-local/metadata. Empty by default.
+    #[serde(default)]
+    pub webhook_trusted_hosts: Vec<String>,
+    /// Process-wide send rate across ALL bots (msg/s). Each bot keeps its own
+    /// ≤25/s limit and Telegram limits per bot, so raise this when one
+    /// instance serves several busy bots. Default 25 (the historic hard-coded value).
+    #[serde(default = "default_global_msgs_per_sec")]
+    pub global_msgs_per_sec: f64,
+}
+
+fn default_global_msgs_per_sec() -> f64 {
+    25.0
 }
 
 #[derive(Debug, Error)]
@@ -73,6 +94,23 @@ impl OperatorConfig {
     }
 
     pub fn validate(&self) -> Result<(), ConfigError> {
+        // Trusted webhook hosts skip DNS resolution/pinning and address checks,
+        // so a trusted HOSTNAME would let whoever controls its DNS aim webhooks
+        // at metadata/loopback. Only IP literals are accepted, and never
+        // link-local/metadata ranges.
+        for h in &self.webhook_trusted_hosts {
+            let ip = crate::webhook::parse_ip_literal(h.trim()).ok_or(ConfigError::InvalidLimit(
+                "webhook_trusted_hosts must be IP literals (no hostnames, no IPv6 zone ids)",
+            ))?;
+            if crate::webhook::never_trustable(ip) {
+                return Err(ConfigError::InvalidLimit(
+                    "webhook_trusted_hosts must not contain metadata, link-local, unspecified or multicast addresses",
+                ));
+            }
+        }
+        if !(self.global_msgs_per_sec >= 1.0 && self.global_msgs_per_sec <= 1000.0) {
+            return Err(ConfigError::InvalidLimit("global_msgs_per_sec must be between 1 and 1000"));
+        }
         let checks = [
             (
                 self.writer_queue_capacity > 0 && self.writer_queue_capacity <= 128,
@@ -139,5 +177,51 @@ impl OperatorConfig {
             }
         }
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn with(extra: &str) -> Result<(), ConfigError> {
+        let base = include_str!("../../../config/operator.defaults.toml");
+        let cfg: OperatorConfig = toml::from_str(&format!("{base}\n{extra}")).expect("parses");
+        cfg.validate()
+    }
+
+    #[test]
+    fn webhook_trust_defaults_off_and_existing_configs_still_load() {
+        let base = include_str!("../../../config/operator.defaults.toml");
+        let cfg: OperatorConfig = toml::from_str(base).expect("parses without the new keys");
+        assert!(!cfg.webhook_allow_insecure_http);
+        assert!(cfg.webhook_trusted_hosts.is_empty());
+        assert!(cfg.validate().is_ok());
+    }
+
+    #[test]
+    fn global_rate_defaults_to_25_and_is_validated() {
+        let base = include_str!("../../../config/operator.defaults.toml");
+        let cfg: OperatorConfig = toml::from_str(base).expect("parses");
+        assert_eq!(cfg.global_msgs_per_sec, 25.0);
+        assert!(with("global_msgs_per_sec = 75.0").is_ok());
+        assert!(with("global_msgs_per_sec = 0.5").is_err());
+        assert!(with("global_msgs_per_sec = 5000.0").is_err());
+    }
+
+    #[test]
+    fn webhook_trusted_hosts_accepts_ip_literals_only() {
+        assert!(with(r#"webhook_trusted_hosts = ["127.0.0.1", "10.0.0.5", "::1", "[fd12::5]"]"#).is_ok());
+        assert!(with(r#"webhook_trusted_hosts = ["0:0:0:0:0:0:0:1", "FD12:0::5", "192.168.1.10"]"#).is_ok());
+        for bad in [
+            "hooks.example.com", "localhost", "169.254.169.254", "0.0.0.0", "0.1.2.3", "fe80::1", "fe80::1%eth0",
+            "fd00:ec2::254", "255.255.255.255", "224.0.0.1", "ff02::1", "fec0::1",
+            "::ffff:169.254.169.254", "::ffff:a9fe:a9fe", "::ffff:0.0.0.0", "100.100.100.200", "168.63.129.16",
+        ] {
+            assert!(
+                with(&format!(r#"webhook_trusted_hosts = ["{bad}"]"#)).is_err(),
+                "{bad} must be rejected"
+            );
+        }
     }
 }
