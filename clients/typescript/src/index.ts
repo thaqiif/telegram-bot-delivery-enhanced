@@ -61,6 +61,10 @@ export interface RecipientResult {
   status: "queued" | "leased" | "delayed" | "succeeded" | "failed" | "ambiguous";
   /** Normalized class for failures, e.g. "forbidden" (blocked the bot), "invalid_recipient". */
   error: string | null;
+  /** Sanitized Telegram `description` for failures (diagnostic only; ids masked as "<n>", max 200 chars). */
+  error_desc: string | null;
+  /** HTTP status of the failing Telegram response, when one was received. */
+  http_status: number | null;
   telegram_message_id: number | null;
   attempt_count: number;
   time_send_unix: number | null;

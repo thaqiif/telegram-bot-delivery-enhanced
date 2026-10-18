@@ -188,6 +188,41 @@ fn previous_epoch_never_sent_is_requeued_and_stale_completion_is_safe() {
     assert_eq!(s.readers.results(b, job, 0, 1).unwrap()[0].status, "queued")
 }
 #[test]
+fn permanent_failure_persists_status_and_sanitized_description() {
+    let (_d, s, b, job) = setup(
+        r#"{"retry_max_attempts":1,"ambiguity_policy":"at_least_once","fairness_weight":1,"job_deadline_secs":100}"#,
+    );
+    let spec = method("sendMessage").unwrap();
+    let d = Dispatcher::new(s.clone(), "epoch");
+    let (j, idx, tok) = d.lease(b, spec, 0, 1).unwrap().unwrap();
+    let call = LeasedCall {
+        job_id: j,
+        idx,
+        lease_token: tok,
+        bot_id: b,
+        method: spec,
+        chat_id: Some("1".into()),
+        policy: policy(),
+        migrated: false,
+    };
+    d.finish(
+        &call,
+        400,
+        Some(&json!({"ok":false,"error_code":400,"description":"Bad Request: chat not found 1234567890"})),
+        false,
+        2,
+    )
+    .unwrap();
+    let row = s.readers.results(b, job, 0, 1).unwrap().pop().unwrap();
+    assert_eq!(row.status, "failed");
+    assert_eq!(row.error.as_deref(), Some("invalid_recipient"));
+    assert_eq!(row.http_status, Some(400));
+    assert_eq!(
+        row.error_desc.as_deref(),
+        Some("Bad Request: chat not found <n>")
+    );
+}
+#[test]
 fn stale_sender_cannot_overwrite_a_released_attempt() {
     let (_d, s, b, job) = setup(
         r#"{"retry_max_attempts":8,"ambiguity_policy":"at_least_once","fairness_weight":1,"job_deadline_secs":100}"#,
@@ -271,7 +306,11 @@ fn projection_and_error_taxonomy() {
     assert!(matches!(c,Classification::Success(ref x) if x.message_id==Some(4)&&x.sent_at_unix==8));
     assert!(matches!(
         classify(403, Some(&json!({"ok":false})), false, 0, m, None),
-        Classification::Permanent { norm: "forbidden" }
+        Classification::Permanent {
+            norm: "forbidden",
+            http_status: 403,
+            desc: None
+        }
     ))
 }
 

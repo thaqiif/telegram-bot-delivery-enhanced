@@ -64,6 +64,9 @@ pub struct ResultItem {
     pub telegram_message_id: Option<i64>,
     pub time_send_unix: Option<i64>,
     pub error: Option<String>,
+    /// Sanitized Telegram `description` of the last permanent failure.
+    pub error_desc: Option<String>,
+    pub http_status: Option<u16>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -384,7 +387,7 @@ fn reader_loop(
                 ).optional()?),
                 ReadQuery::Results(id, j, c, l) => {
                     let mut s = conn.prepare(
-                        "SELECT r.idx,r.chat_id,r.state,r.attempt_count,r.telegram_message_id,r.time_send_unix,r.error_norm FROM recipients r JOIN jobs j ON j.job_id=r.job_id WHERE j.bot_id=?1 AND j.job_id=?2 AND j.state!='accepting' AND r.idx>=?3 ORDER BY r.idx LIMIT ?4"
+                        "SELECT r.idx,r.chat_id,r.state,r.attempt_count,r.telegram_message_id,r.time_send_unix,r.error_norm,r.last_error_desc,r.last_http_status FROM recipients r JOIN jobs j ON j.job_id=r.job_id WHERE j.bot_id=?1 AND j.job_id=?2 AND j.state!='accepting' AND r.idx>=?3 ORDER BY r.idx LIMIT ?4"
                     )?;
                     let rows = s.query_map(rusqlite::params![id.0.as_slice(), j, c, l], |r| Ok(ResultItem {
                         idx: r.get(0)?,
@@ -394,6 +397,8 @@ fn reader_loop(
                         telegram_message_id: r.get(4)?,
                         time_send_unix: r.get(5)?,
                         error: r.get(6)?,
+                        error_desc: r.get(7)?,
+                        http_status: r.get(8)?,
                     }))?.collect::<Result<_, _>>()?;
                     ReadResult::Results(rows)
                 }

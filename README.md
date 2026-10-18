@@ -238,7 +238,7 @@ Returns exact counters (`queued/in_flight/delayed/succeeded/failed/ambiguous`), 
 curl -s "http://127.0.0.1:8080/bot${TOKEN}/bulk/jobs/<JOB_ID>/results?limit=100"
 ```
 
-Rows in stable recipient order with `telegram_message_id` and normalized error classes; `next_cursor` paginates.
+Rows in stable recipient order with `telegram_message_id` and normalized error classes (`error`) plus diagnostic `http_status` and a sanitized `error_desc` (Telegram description, ids masked, max 200 chars; both `null` unless a failure response was received); `next_cursor` paginates.
 
 ### Per-bot policy
 

@@ -66,7 +66,7 @@ Success (HTTP 200 **after** durable accept):
 
 `GET /bot<TOKEN>/bulk/jobs/<JOB_ID>` returns exact counters (`queued` / `in_flight` / `delayed` / `succeeded` / `failed` / `ambiguous`), percent complete, observed rates, ETA, webhook state.
 
-`GET .../results` returns rows in stable recipient order with `telegram_message_id` and normalized error classes. Page with `next_cursor`.
+`GET .../results` returns rows in stable recipient order with `telegram_message_id` and normalized error classes (`error`) plus diagnostic `http_status` and a sanitized `error_desc` (Telegram description, ids masked, max 200 chars; both `null` unless a failure response was received). Page with `next_cursor`.
 
 If the consumer must persist Telegram `message_id`s, wait until the job is terminal, then page results. Back off between polls.
 

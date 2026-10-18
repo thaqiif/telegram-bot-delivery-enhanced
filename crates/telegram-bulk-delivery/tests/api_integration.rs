@@ -216,6 +216,9 @@ async fn auth_negative_cache_config_submit_poll_results_deadline_and_isolation()
     .await;
     assert_eq!(status, 200);
     assert_eq!(results["result"]["items"].as_array().unwrap().len(), 1);
+    let item = &results["result"]["items"][0];
+    assert!(item.get("error_desc").is_some_and(|v| v.is_null()));
+    assert!(item.get("http_status").is_some_and(|v| v.is_null()));
     assert_eq!(results["result"]["next_cursor"], 1);
     assert_eq!(
         call(&f.app, "GET", &format!("/bottwo/bulk/jobs/{id}"), None, "")
