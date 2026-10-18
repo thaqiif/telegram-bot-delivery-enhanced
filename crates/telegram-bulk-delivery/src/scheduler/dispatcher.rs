@@ -237,8 +237,14 @@ impl Dispatcher {
                     CompletionOutcome::Ambiguous
                 }
             }
-            Classification::Permanent { norm } => CompletionOutcome::Failed {
+            Classification::Permanent {
+                norm,
+                http_status,
+                desc,
+            } => CompletionOutcome::Failed {
                 error_norm: norm.into(),
+                http_status: Some(http_status),
+                error_desc: desc,
             },
             Classification::Unauthorized => {
                 self.store.writer.execute(WriterCmd::FailBotUnauthorized {
@@ -262,6 +268,8 @@ impl Dispatcher {
                 }
                 CompletionOutcome::Failed {
                     error_norm: "migrated".into(),
+                    http_status: Some(status),
+                    error_desc: None,
                 }
             }
         };
@@ -281,6 +289,8 @@ fn retry_or_fail(call: &LeasedCall, now: i64, norm: &str) -> CompletionOutcome {
         } else {
             CompletionOutcome::Failed {
                 error_norm: norm.into(),
+                http_status: None,
+                error_desc: None,
             }
         }
     } else {

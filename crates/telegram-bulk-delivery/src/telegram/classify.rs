@@ -11,11 +11,21 @@ pub struct Success {
 #[derive(Debug, Clone, PartialEq)]
 pub enum Classification {
     Success(Success),
-    Flood { retry_after: u32 },
+    Flood {
+        retry_after: u32,
+    },
     Transient,
-    Permanent { norm: &'static str },
+    /// `http_status`/`desc` are diagnostic only (sanitized Telegram
+    /// `description`); `norm` stays the stable client-facing class.
+    Permanent {
+        norm: &'static str,
+        http_status: u16,
+        desc: Option<String>,
+    },
     Unauthorized,
-    Migrate { chat_id: i64 },
+    Migrate {
+        chat_id: i64,
+    },
     Ambiguous,
 }
 pub fn classify(
@@ -33,7 +43,11 @@ pub fn classify(
         return if status >= 500 {
             Classification::Transient
         } else {
-            Classification::Permanent { norm: "unknown" }
+            Classification::Permanent {
+                norm: "unknown",
+                http_status: status,
+                desc: None,
+            }
         };
     };
     if let Some(n) = v.pointer("/parameters/retry_after").and_then(Value::as_u64) {
@@ -68,6 +82,11 @@ pub fn classify(
             } else {
                 "invalid_recipient"
             },
+            http_status: status,
+            desc: v
+                .get("description")
+                .and_then(Value::as_str)
+                .map(sanitize_desc),
         };
     }
     let result = &v["result"];
@@ -93,6 +112,29 @@ pub fn classify(
         sent_at_unix,
         chat_id,
     })
+}
+/// Truncate to 200 chars and mask runs of 5+ digits (chat/user ids) as `<n>`.
+pub fn sanitize_desc(raw: &str) -> String {
+    let mut out = String::new();
+    let mut digits = String::new();
+    let flush = |out: &mut String, digits: &mut String| {
+        if digits.len() >= 5 {
+            out.push_str("<n>");
+        } else {
+            out.push_str(digits);
+        }
+        digits.clear();
+    };
+    for ch in raw.chars() {
+        if ch.is_ascii_digit() {
+            digits.push(ch);
+        } else {
+            flush(&mut out, &mut digits);
+            out.push(ch);
+        }
+    }
+    flush(&mut out, &mut digits);
+    out.chars().take(200).collect()
 }
 pub fn retries_ambiguous(policy: AmbiguityPolicy, spec: &MethodSpec) -> bool {
     match policy {
@@ -162,5 +204,51 @@ mod tests {
             classify(200, None, true, 0, m, None),
             Classification::Ambiguous
         ));
+    }
+    #[test]
+    fn permanent_captures_status_and_sanitized_description() {
+        let m = method("deleteMessage").unwrap();
+        let c = classify(
+            400,
+            Some(
+                &serde_json::json!({"ok":false,"error_code":400,"description":"Bad Request: message to delete not found in chat 123456789 (id 42)"}),
+            ),
+            false,
+            0,
+            m,
+            None,
+        );
+        assert_eq!(
+            c,
+            Classification::Permanent {
+                norm: "invalid_recipient",
+                http_status: 400,
+                desc: Some("Bad Request: message to delete not found in chat <n> (id 42)".into()),
+            }
+        );
+        assert_eq!(
+            classify(
+                403,
+                Some(&serde_json::json!({"ok":false})),
+                false,
+                0,
+                m,
+                None
+            ),
+            Classification::Permanent {
+                norm: "forbidden",
+                http_status: 403,
+                desc: None,
+            }
+        );
+    }
+    #[test]
+    fn sanitize_truncates_and_masks_ids() {
+        assert_eq!(
+            sanitize_desc("user -1001234567890 and 1234"),
+            "user -<n> and 1234"
+        );
+        assert_eq!(sanitize_desc("12345"), "<n>");
+        assert_eq!(sanitize_desc(&"é".repeat(300)).chars().count(), 200);
     }
 }

@@ -104,6 +104,10 @@ describe("TgBulkClient against real tgbulk", () => {
     expect(rows.filter((r) => r.status === "succeeded").every((r) => typeof r.telegram_message_id === "number")).toBe(true);
     const errs = Object.fromEntries(rows.filter((r) => r.status === "failed").map((r) => [r.chat_id, r.error]));
     expect(errs).toEqual({ "300013": "forbidden", "300014": "invalid_recipient" });
+    const failed = rows.filter((r) => r.status === "failed");
+    expect(failed.every((r) => typeof r.http_status === "number" && r.http_status >= 400)).toBe(true);
+    expect(failed.every((r) => r.error_desc === null || typeof r.error_desc === "string")).toBe(true);
+    expect(rows.filter((r) => r.status === "succeeded").every((r) => r.error_desc === null && r.http_status === null)).toBe(true);
   }, 90_000);
 
   test("auth gate and client-side validation", async () => {

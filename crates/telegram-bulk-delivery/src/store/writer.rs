@@ -42,6 +42,8 @@ pub enum CompletionOutcome {
     },
     Failed {
         error_norm: String,
+        http_status: Option<u16>,
+        error_desc: Option<String>,
     },
     Ambiguous,
     Delayed {
@@ -598,6 +600,14 @@ fn execute(conn: &mut Connection, command: WriterCmd) -> Result<WriterResult, St
             outcome,
             lease_token,
         } => transaction(conn, |c| {
+            let (http_status, error_desc) = match &outcome {
+                CompletionOutcome::Failed {
+                    http_status,
+                    error_desc,
+                    ..
+                } => (*http_status, error_desc.clone()),
+                _ => (None, None),
+            };
             let (state, error, not_before, consume, msg, sent) = match outcome {
                 CompletionOutcome::Succeeded {
                     message_id,
@@ -610,7 +620,7 @@ fn execute(conn: &mut Connection, command: WriterCmd) -> Result<WriterResult, St
                     message_id,
                     Some(sent_at_unix),
                 ),
-                CompletionOutcome::Failed { error_norm } => {
+                CompletionOutcome::Failed { error_norm, .. } => {
                     ("failed", Some(error_norm), None, true, None, None)
                 }
                 CompletionOutcome::Ambiguous => (
@@ -634,7 +644,7 @@ fn execute(conn: &mut Connection, command: WriterCmd) -> Result<WriterResult, St
                     None,
                 ),
             };
-            let moved = c.execute("UPDATE recipients SET state=?3,attempt_count=attempt_count+1,retry_consumed=retry_consumed+?4,error_norm=?5,not_before_unix=coalesce(?6,not_before_unix),telegram_message_id=?7,time_send_unix=?8,lease_owner=NULL,lease_until_unix=NULL,wire_started=0 WHERE job_id=?1 AND idx=?2 AND state='leased' AND lease_token=?9",params![job_id,idx,state,i64::from(consume),error,not_before,msg,sent,lease_token])?;
+            let moved = c.execute("UPDATE recipients SET state=?3,attempt_count=attempt_count+1,retry_consumed=retry_consumed+?4,error_norm=?5,not_before_unix=coalesce(?6,not_before_unix),telegram_message_id=?7,time_send_unix=?8,lease_owner=NULL,lease_until_unix=NULL,wire_started=0,last_http_status=coalesce(?10,last_http_status),last_error_desc=coalesce(?11,last_error_desc) WHERE job_id=?1 AND idx=?2 AND state='leased' AND lease_token=?9",params![job_id,idx,state,i64::from(consume),error,not_before,msg,sent,lease_token,http_status,error_desc])?;
             if moved == 0 {
                 // Stale completion for a recipient that is no longer leased
                 // (e.g. recovered by an earlier expiry). Nothing to move.
